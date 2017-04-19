@@ -1,0 +1,5 @@
+<ul>
+    {% for item in inventory_items %}
+    <li>{{ item.name }} -- Stock: {{item.stock}} -- Warehouse: {{item.warehouse}}  </li>
+    {% endfor %}
+</ul>
