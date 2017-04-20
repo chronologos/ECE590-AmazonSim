@@ -3,7 +3,7 @@ CFLAGS=-std=c++11 -g
 EXTRAFLAGS=`pkg-config --cflags --libs protobuf`
 
 #all: protobuf_test protobuf_test_read client2
-all: amazon_server sleepyProtobuff internalClientTest
+all: amazon_server internalClientTest
 
 protobuf_test: protobuf_test.cpp addressbook.pb.cc
 	{ \
@@ -25,10 +25,7 @@ client: client.cpp addressbook.pb.cc utility.cpp
 	$(CC) $(CFLAGS) -Wall -pedantic -L/usr/local/lib -I/usr/local/include -o client client.cpp addressbook.pb.cc utility.cpp $(EXTRAFLAGS)
 
 amazon_server:
-	$(CC) $(CFLAGS) -Wall -pedantic -L/usr/local/lib -I/usr/local/include -o amazon_server amazon_server.cpp amazon.pb.cc utility.cpp $(EXTRAFLAGS)
-
-sleepyProtobuff:
-	$(CC) $(CFLAGS) -Wall -pedantic -L/usr/local/lib -I/usr/local/include -o sleepyProtobuff nonBlockingIO/sleepyProtobuff.cc internalcom.pb.cc utility.cpp $(EXTRAFLAGS)
+	$(CC) $(CFLAGS) -Wall -pedantic -L/usr/local/lib -I/usr/local/include -o amazon_server amazon_server.cpp amazon.pb.cc internalcom.pb.cc utility.cpp nonBlockingIO/sleepyProtobuff.cc dbHandler.cc -lpqxx -lpq $(EXTRAFLAGS)
 
 internalClientTest:
 	$(CC) $(CFLAGS) -Wall -pedantic -L/usr/local/lib -I/usr/local/include -o internalClientTest nonBlockingIO/internalClientTest.cc internalcom.pb.cc utility.cpp $(EXTRAFLAGS)

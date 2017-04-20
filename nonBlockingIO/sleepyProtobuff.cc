@@ -1,45 +1,45 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/ioctl.h>
-#include <sys/socket.h>
-#include <sys/time.h>
-#include <netinet/in.h>
-#include <errno.h>
-#include <sys/stat.h>
-#include <unistd.h>
-#include <string.h>
-#include <netdb.h>
-
-#include <iostream>
-#include <fstream>
-#include <cstring>
-#include <list>
-#include <sstream>
-#include <stdexcept>
-
-#include <thread>
-#include <set>
-#include <map>
-
-#include "../utility.hpp"
-#include <google/protobuf/message_lite.h>
-#include "../amazon.pb.h"
-#include "../internalcom.pb.h"
-
-
+#include "./sleepyProtobuff.h"
 /* ADAPTED FROM IBM Knowledge Center - "https://www.ibm.com/support/knowledgecenter/en/ssw_i5_54/rzab6/xnonblock.htm" */
 
-#define SLEEPY_SERVER_PORT  23456
-#define LISTEN_BACKLOG 128
-#define SERVICE_QUOTA 10
+int purchaseMore(unsigned long shipid, int sim_sock) {
+   // Initialize vector of AProduct messages
+   std::vector<AProduct> productMsgs;
+   // Retrieve vector<tuple> of all products associated with shipid from DB
+   std::vector<std::tuple<unsigned long, std::string, int>> shipProducts = getShipmentProducts(shipid); 
+   // For each tuple
+   for (std::vector<std::tuple<unsigned long, std::string, int>>::iterator it = shipProducts.begin(); it < shipProducts.end(); it ++) {
+      // Create APurchase object, push into vector
+      AProduct nextProduct;
+      std::tuple<unsigned long, std::string, int> shipProduct = *it;
+      nextProduct.set_id(std::get<0>(shipProduct));
+      nextProduct.set_description(std::get<1>(shipProduct));
+      nextProduct.set_count(std::get<2>(shipProduct));
+      productMsgs.push_back(nextProduct);
+   }
+   // Initialize APurchaseMore object
+   APurchaseMore purchaseMsg;
+   purchaseMsg.set_whnum(1); // TBD
+   // Iterate through vector, for each product item
+   for (std::vector<AProduct>::iterator it = productMsgs.begin(); it < productMsgs.end(); it ++) {
+      // add_APurchase on the APurchaseMore object
+      AProduct* addedProduct = purchaseMsg.add_things();
+      *addedProduct = *it;
+   }
+   // sendMsgToSocket with aPurchaseMore, sim_sock
+   if (!sendMsgToSocket(*((google::protobuf::Message*)&purchaseMsg), sim_sock)) {
+      std::cout << "Error sending buy message for shipment " << shipid << "\n!";
+      // TO-DO : Need to trigger some follow-up action
+   }
+   else {
+      std::cout << "Successfully restocked for shipment " << shipid << "!\n";
+      // TO-DO : INSERT INTO INVENTORY DB
+   }
+   // return 0 if success, -1 if failure
+   return 0;
+}
 
-int running = 1;
-const char* response = "OK!\n\0";
 
-//using namespace std;
-
-
-int sleepyListen() {
+int sleepyListen(int sim_sock) {
 	int    i, len, rc, on = 1;
    int    listen_sd, max_sd, new_sd;
    int    desc_ready = 0;//, end_server = 0;
@@ -157,27 +157,7 @@ int sleepyListen() {
 
    				else { // Not listen fd - perform read
    					int numRead;
-                  /*
-   					char readBuf[100]; // TEMP - JUST FOR TESTING; NOT SAFE
-   					memset(readBuf, 0, 100);
-   					*/
                   Order order;
-                  /*
-                  if ((numRead = read(i, readBuf, 100)) < 0) {
-   						if (errno != EWOULDBLOCK) {
-   							perror("Error reading client request");
-   						}
-   						else {
-   							std::cout << "Read data not available on socket " << i << ", will try again later\n";
-   						}
-   					}
-   					else {
-   						std::cout << "Successfully read " << numRead << " bytes from client\n";
-   						std::cout << "Buffer:\n" << readBuf << "\n";
-   						// push to set for writing
-   						mustWrite.emplace(i);
-   					}
-                  */
                   if (!recvMsgFromSocket(*((google::protobuf::Message*)&order), i)) {
                      std::cout << "Unable to read internal proto message\n";
                      // close socket and remove from list
@@ -192,6 +172,13 @@ int sleepyListen() {
                      shipids.insert(std::pair<int, unsigned long>(i, shipid));
                      // push to set for writing
                      mustWrite.emplace(i);
+                     // Purchase More - NOTE : Do on critical path? Or later?
+                     if (purchaseMore(shipid, sim_sock)) {
+                        std::cout << "Error purchasing more of products consumed by shipid " << shipid << "\n";
+                     }
+                     else {
+                        std::cout << "Successfully purchased more!\n";
+                     }
                   }
    				}
    			}
@@ -199,28 +186,6 @@ int sleepyListen() {
    				// Need to write and ready for writing
    				desc_ready --;
    				std::cout << "Socket " << i << " is ready for writing\n";
-   				/*
-               int numWritten;
-   				if ((numWritten = write(i, response, strlen(response))) < 0) { // Not necessary?
-   					if (errno == EWOULDBLOCK) {
-   						std::cout << "Will try writing to socket " << i << " later\n";
-   						continue;   		
-   						perror("Error writing to client");
-   						close(i);
-   						FD_CLR(i, &master_set);
-   						mustWrite.erase(i);
-   						
-   					}
-   				
-   					else {
-   						std::cout << "Socket " << i << " closed?\n";   						
-   					}
-   					
-   				}
-   				else {
-   					std::cout << "Successfully wrote " << numWritten << " bytes to socket " << i << "\n";
-   				}
-               */
                // Retrieve shipid for this connection
                std::map<int, unsigned long>::iterator it = shipids.find(i);
                std::string errorStr;
@@ -256,18 +221,27 @@ int sleepyListen() {
    			}
    		}
    	}
-//   } while (running);
-	} while (serviced < SERVICE_QUOTA);
+   } while (1);
+//	} while (serviced < SERVICE_QUOTA);
 	std::cout << "Sleepy server has hit work quota, retiring\n";
    return 0;
 }
 
+std::thread * launchInternalServer(int sim_sock) {
+   std::cout << "Main thread launching sleepy server thread\n";
+   std::thread * sleepyServer = new std::thread(sleepyListen, sim_sock);
+   return sleepyServer;
+}
+
+/*
 int main() {
 	std::cout << "Main thread launching sleepy server thread\n";
-	std::thread sleepyServer(sleepyListen);
-	std::cout << "Main thread waiting for sleepy server to be done\n";
+   std::thread sleepyServer(sleepyListen);
+
+   std::cout << "Main thread waiting for sleepy server to be done\n";
 	sleepyServer.join();
 	std::cout << "Sleepy server done, main thread also exiting\n";
 	//sleepyListen();
 	exit(0);
 }
+*/
