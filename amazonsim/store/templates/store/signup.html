@@ -1,0 +1,17 @@
+<div class="container">
+  <form class="form-signin" action="{% url 'signup' %}" method="post">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+    <h2 class="form-signin-heading">Create account</h2>
+    {{ form.username.errors }}
+    <label for="{{ form.username.id_for_label }}" class="sr-only">Username</label>
+    {{ form.username }}
+    {{ form.email.errors }}
+    <label for="{{ form.email.id_for_label }}" class="sr-only">Email</label>
+    {{ form.email }}
+    {{ form.password.errors }}
+    <label for="{{ form.password.id_for_label }}" class="sr-only">Password</label>
+    {{ form.password }}
+    <button class="btn btn-lg btn-primary btn-block" type="submit">Create your account</button>
+  </form>
+</div>

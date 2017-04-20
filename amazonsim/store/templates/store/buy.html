@@ -1,0 +1,20 @@
+{% extends "store/base.html" %}
+{% block title %}You know you want it...{% endblock %}
+{% block content %}
+<div class="row justify-content-md-center">
+  <div class="col-md-6">
+    <form action="{% url 'buy' product_id %}" method="post">
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+      <h1>Buy</h1>
+      Product Description etc etc: {{ product_id }}
+      <div class="form-group">
+        {{ form.qty.errors }}
+        <label for="{{ form.qty.id_for_label }}">Quantity: </label>
+        {{ form.qty }}
+      </div>
+      <button type="submit" class="btn btn-primary">Add to cart!</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
