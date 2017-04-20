@@ -1,0 +1,15 @@
+{% extends "store/base.html" %}
+{% block title %}My Orders{% endblock %}
+{% block content %}
+<ul>
+  {% for trackingnum, order in orders.items %}
+  <li>Tracking #{{trackingnum}}
+    <ul>
+      {% for item in order %}
+      <li>{{item.product}} -- {{item.count}}</li>
+      {% endfor %}
+    </ul>
+  </li>
+  {% endfor %}
+</ul>
+{% endblock %}

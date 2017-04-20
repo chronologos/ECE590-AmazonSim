@@ -110,4 +110,3 @@ bool recvMsgFromSocket(google::protobuf::Message & message, int fd) {
   google::protobuf::io::FileInputStream fs(fd);
   return recvMesgFrom(message, &fs);
 }
-
