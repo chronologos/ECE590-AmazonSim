@@ -1,5 +1,9 @@
+{% extends "store/base.html" %}
+{% block title %}The world's best webstore{% endblock %}
+{% block content %}
 <ul>
-    {% for item in inventory_items %}
-    <li>{{ item.name }} -- Stock: {{item.stock}} -- Warehouse: {{item.warehouse}}  </li>
-    {% endfor %}
+  {% for item in inventory_items %}
+    <li>{{ item.product }} -- Stock: {{item.count}} -- Warehouse: {{item.warehouse}} <a href="/buy/{{item.id}}">Buy</a> </li>
+  {% endfor %}
 </ul>
+{% endblock %}

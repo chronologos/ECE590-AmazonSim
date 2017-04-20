@@ -19,5 +19,12 @@ from store import views
 
 urlpatterns = [
     url(r'^admin/', admin.site.urls),
+    url(r'^buy/(?P<product_id>[0-9]+)/$', views.buy, name='buy'),
+    url(r'^cart/$', views.cart, name='cart'),
+    url(r'^checkout/$', views.checkout, name='checkout'),
+    url(r'^logout/$', views.logout, name='logout'),
+    url(r'^orders/$', views.orders, name='orders'),
     url(r'^products/', views.InventoryView.as_view(), name='products'),
+    url(r'^signup/$', views.get_signup, name='signup'),
+    url(r'^$', views.login, name='login'),
 ]
