@@ -12,9 +12,9 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
-#include "./utility.hpp"
+#include "../utility.hpp"
 #include <google/protobuf/message_lite.h>
-#include "./internalcom.pb.h"
+#include "../internalcom.pb.h"
 
 using namespace std;
 

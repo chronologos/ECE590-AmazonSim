@@ -21,10 +21,10 @@
 #include <set>
 #include <map>
 
-#include "./utility.hpp"
+#include "../utility.hpp"
 #include <google/protobuf/message_lite.h>
-#include "./amazon.pb.h"
-#include "./internalcom.pb.h"
+#include "../amazon.pb.h"
+#include "../internalcom.pb.h"
 
 
 /* ADAPTED FROM IBM Knowledge Center - "https://www.ibm.com/support/knowledgecenter/en/ssw_i5_54/rzab6/xnonblock.htm" */
