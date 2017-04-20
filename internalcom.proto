@@ -1,16 +1,19 @@
+/*
 message AProduct {
   required int64 id = 1;
   optional string description = 2;
   required int32 count = 3;
 }
+*/
 
 message Order {
-  required int64 djangoid = 1;
-  repeated AProduct products = 2;
+//  required int64 djangoid = 1;
+//  repeated AProduct products = 2;
+	required int64 shipid = 1;
 }
 
 message OrderReply {
-  required int64 djangoid = 1;
-  required int64 shipid = 2;
+//  required int64 djangoid = 1;
+  required int64 shipid = 1;
   optional string error = 2;
 }

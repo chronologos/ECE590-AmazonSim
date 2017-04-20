@@ -3,7 +3,7 @@ CFLAGS=-std=c++11 -g
 EXTRAFLAGS=`pkg-config --cflags --libs protobuf`
 
 #all: protobuf_test protobuf_test_read client2
-all: amazon_server
+all: amazon_server sleepyProtobuff internalClientTest
 
 protobuf_test: protobuf_test.cpp addressbook.pb.cc
 	{ \
@@ -26,3 +26,9 @@ client: client.cpp addressbook.pb.cc utility.cpp
 
 amazon_server:
 	$(CC) $(CFLAGS) -Wall -pedantic -L/usr/local/lib -I/usr/local/include -o amazon_server amazon_server.cpp amazon.pb.cc utility.cpp $(EXTRAFLAGS)
+
+sleepyProtobuff:
+	$(CC) $(CFLAGS) -Wall -pedantic -L/usr/local/lib -I/usr/local/include -o sleepyProtobuff sleepyProtobuff.cc internalcom.pb.cc utility.cpp $(EXTRAFLAGS)
+
+internalClientTest:
+	$(CC) $(CFLAGS) -Wall -pedantic -L/usr/local/lib -I/usr/local/include -o internalClientTest internalClientTest.cc internalcom.pb.cc utility.cpp $(EXTRAFLAGS)
