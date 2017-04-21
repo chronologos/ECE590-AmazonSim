@@ -32,10 +32,17 @@ int purchaseMore(unsigned long shipid, int sim_sock) {
    }
    else {
       std::cout << "Successfully restocked for shipment " << shipid << "!\n";
-      // TO-DO : INSERT INTO INVENTORY DB
+      // INSERT INTO TrackingNumbers table in DB
+      if (initShipmentState(shipid)) { // Impossible to return error for now
+         std::cout << "Unable to enter shipment into database!\n";
+         return -1;
+      }
+      std::cout << "Successfully entered shipment into TrackingNumbers table!\n";
+     // TO-DO : INSERT INTO INVENTORY DB
+      return updateInventory(shipid);
    }
    // return 0 if success, -1 if failure
-   return 0;
+   return -1;
 }
 
 
