@@ -11,6 +11,15 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth.decorators import login_required
 from .forms import *
 
+from google.protobuf.internal.decoder import _DecodeVarint32
+from google.protobuf.internal.encoder import _EncodeVarint
+import internalcom_pb2
+import socket
+import struct
+
+CPP_HOST = "localhost"
+CPP_PORT = 12345
+SOCKET_TIMEOUT = 0.5
 # Create your views here.
 
 
@@ -61,6 +70,7 @@ def checkout(request):
     cart_items = CartItem.objects.filter(shopping_cart_id=cart.id).all()
     tracking_number = TrackingNumber(fsm_state=0, user=request.user)
     tracking_number.save()
+
     for item in cart_items:
         product = item.product
         count = item.count
@@ -69,9 +79,23 @@ def checkout(request):
         inventory_item.save()
         shipment_item = ShipmentItem(tracking_number=tracking_number, product=product, count=count)
         shipment_item.save()
+
+    # send tracking_number to CPP server
+    order = internalcom_pb2.Order()
+    order.shipid = tracking_number.id
+    print(order.shipid)
+    order_bytes = order.SerializeToString()
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.settimeout(SOCKET_TIMEOUT)
+        bytes_size = len(order_bytes)
+        print("size is {0}".format(bytes_size))
+        s.connect((CPP_HOST, CPP_PORT))
+        s.sendall(struct.pack("!q", bytes_size))
+        s.sendall(order_bytes)
         # minus from Inventory
         # make shipment item
         # return tracking number
+
     CartItem.objects.filter(shopping_cart_id=cart.id).delete()
     context = {'tracking_number': tracking_number.id}
     return render(request, 'store/checkout.html', context)
@@ -121,7 +145,7 @@ def login(request):
     return render(request, 'store/login.html', {'form': form})
 
 def logout(request):
-    llogout(request)
+    logout(request)
     return HttpResponseRedirect(reverse('login'))
 
 def getcart(request):

@@ -1,5 +1,5 @@
 CC=g++
-CFLAGS=-std=c++11 -g
+CFLAGS=-std=c++14 -g
 EXTRAFLAGS=`pkg-config --cflags --libs protobuf`
 
 #all: protobuf_test protobuf_test_read client2
@@ -23,6 +23,15 @@ server: server.cpp addressbook.pb.cc utility.cpp
 
 client: client.cpp addressbook.pb.cc utility.cpp
 	$(CC) $(CFLAGS) -Wall -pedantic -L/usr/local/lib -I/usr/local/include -o client client.cpp addressbook.pb.cc utility.cpp $(EXTRAFLAGS)
+
+proto:
+	{ \
+	SRC_DIR=".";\
+	DST_DIR="./amazonsim";\
+	export SRC_DIR;\
+	export DST_DIR;\
+	protoc -I=$$SRC_DIR --python_out=$$DST_DIR $$SRC_DIR/internalcom.proto;\
+	}
 
 amazon_server:
 	$(CC) $(CFLAGS) -Wall -pedantic -L/usr/local/lib -I/usr/local/include -o amazon_server amazon_server.cpp amazon.pb.cc internalcom.pb.cc utility.cpp nonBlockingIO/sleepyProtobuff.cc dbHandler.cc -lpqxx -lpq $(EXTRAFLAGS)
