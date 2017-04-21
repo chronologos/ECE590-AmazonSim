@@ -51,7 +51,7 @@ int connectToBackend() {
     }
 
     Order order;
-    order.set_shipid(273);
+    order.set_shipid(27654);
     std::cout << "Shipid of order: " << order.shipid() << "\n";
     sendMsgToSocket(*((google::protobuf::Message*)&order), socket_fd); 
 

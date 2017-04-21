@@ -23,5 +23,6 @@ bool recvMsgFromSocket(google::protobuf::Message & message, int fd);
 //template<typename T> bool recvMsgFromSocket(const T & message, int fd);
 
 
+
 #endif
 

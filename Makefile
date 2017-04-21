@@ -2,7 +2,8 @@ CC=g++
 CFLAGS=-std=c++14 -g
 EXTRAFLAGS=`pkg-config --cflags --libs protobuf`
 
-all: protobuf_test protobuf_test_read
+#all: protobuf_test protobuf_test_read client2
+all: amazon_server internalClientTest
 
 protobuf_test: protobuf_test.cpp addressbook.pb.cc
 	{ \
@@ -31,3 +32,9 @@ proto:
 	export DST_DIR;\
 	protoc -I=$$SRC_DIR --python_out=$$DST_DIR $$SRC_DIR/internalcom.proto;\
 	}
+
+amazon_server:
+	$(CC) $(CFLAGS) -Wall -pedantic -L/usr/local/lib -I/usr/local/include -o amazon_server amazon_server.cpp amazon.pb.cc internalcom.pb.cc utility.cpp nonBlockingIO/sleepyProtobuff.cc dbHandler.cc -lpqxx -lpq $(EXTRAFLAGS)
+
+internalClientTest:
+	$(CC) $(CFLAGS) -Wall -pedantic -L/usr/local/lib -I/usr/local/include -o internalClientTest nonBlockingIO/internalClientTest.cc internalcom.pb.cc utility.cpp $(EXTRAFLAGS)
