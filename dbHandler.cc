@@ -76,10 +76,18 @@ int initShipmentState(unsigned long shipid) { // TO-DO : Catch exceptions?
 	pqxx::connection c{"dbname=amazonsim user=radithya"};
   	pqxx::work txn{c};
   	std::string queryString("INSERT INTO trackingnumbers (ship_id, fsm_state) VALUES (" + std::to_string(shipid) + ", " + std::to_string(1) + ")");
-  	pqxx::result r = txn.exec(queryString);
-  	txn.commit();
-  	std::cout << "Succesfully inserted shipid " << shipid << " into trackingnumbers table\n";
-  	return 0; 
+  	
+    try {
+      pqxx::result r = txn.exec(queryString);
+    	txn.commit();
+    	std::cout << "Succesfully inserted shipid " << shipid << " into trackingnumbers table\n";
+  	 return 0; 
+    }
+    catch (const pqxx::pqxx_exception &e) { // Most likely a retry by Django client on same shipid
+      std::cout << "DB ERROR trying to insert ship_id into trackingnumbers table:\n";
+      std::cerr << e.base().what();
+      return -1;
+    }
 }
 
 // Increment FSM state of shipment in database
@@ -121,6 +129,26 @@ int getInventory(unsigned long productid) {
   	return count;
 }
 
+
+// Add amount toAdd to current amount of item in DB, update DB, return updated amount
+int updateInventory(unsigned long productid, int toAdd) {
+  int oldAmount = getInventory(productid);
+  if (oldAmount < 0) {
+    std::cout << "Missing item with productid " << productid << " detected while trying to update inventory; skipping\n"; 
+    return -1;
+  }
+  int newAmount = oldAmount + toAdd;
+  pqxx::connection c{"dbname=amazonsim user=radithya"};
+  pqxx::work txn{c};
+  std::string queryString("INSERT INTO inventory (product_id, count, warehouse) VALUES ("  + std::to_string(productid) + ", " + std::to_string(newAmount) + ")");
+  pqxx::result r = txn.exec(queryString);
+  txn.commit();
+  std::cout << "Updated amount of product_id " << productid << " to " << newAmount << "\n";
+  return newAmount;
+}
+
+
+/*
 int updateInventory(unsigned long shipid) {
 	std::vector<std::tuple<unsigned long, std::string, int>> productsBought = getShipmentProducts(shipid);
 	if (productsBought.size() == 0) {
@@ -135,7 +163,9 @@ int updateInventory(unsigned long shipid) {
   	int oldAmount;
   	std::tuple<unsigned long, std::string, int> product;
   	for (std::vector<std::tuple<unsigned long, std::string, int>>::iterator it = productsBought.begin(); it < productsBought.end() - 1; it ++) {
-  		product = *it;
+  		
+      // incrementing the inventory of a single product
+      product = *it;
   		productid = std::get<0>(product);
   		count = std::get<2>(product);
   		oldAmount = getInventory(productid);
@@ -161,6 +191,7 @@ int updateInventory(unsigned long shipid) {
   	std::cout << "Succesfully updated inventory for shipid " << shipid << "\n";
   	return 0;
 }
+*/
 
 /*
 int main() {

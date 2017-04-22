@@ -10,4 +10,5 @@ int getShipmentState(unsigned long shipid);
 int initShipmentState(unsigned long shipid);
 int incrementShipmentState(unsigned long shipid);
 int getInventory(unsigned long productid);
-int updateInventory(unsigned long shipid);
+int updateInventory(unsigned long productid, int toAdd); 
+//int updateInventory(unsigned long shipid);

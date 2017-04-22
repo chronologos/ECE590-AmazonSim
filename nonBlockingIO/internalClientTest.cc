@@ -19,7 +19,7 @@
 using namespace std;
 
 
-int connectToBackend() {  
+int connectToBackend(unsigned long ship_id) {  
   int status;
   int socket_fd;
   struct addrinfo host_info;
@@ -51,13 +51,14 @@ int connectToBackend() {
     }
 
     Order order;
-    order.set_shipid(27654);
+    order.set_shipid(ship_id);
     std::cout << "Shipid of order: " << order.shipid() << "\n";
-    sendMsgToSocket(*((google::protobuf::Message*)&order), socket_fd); 
+    //sendMsgToSocket(*((google::protobuf::Message*)&order), socket_fd);
+    sendMsgToSocket(order, socket_fd); 
 
     OrderReply orderReply;
-    google::protobuf::Message * rcvMessage = (google::protobuf::Message *)&orderReply;
-    bool response = recvMsgFromSocket(*rcvMessage, socket_fd);
+    //google::protobuf::Message * rcvMessage = (google::protobuf::Message *)&orderReply;
+    bool response = recvMsgFromSocket(orderReply, socket_fd);
     if (!response) {
       puts("Error reading!");
       //close(socket_fd);
@@ -80,7 +81,12 @@ int connectToBackend() {
 
 
 int main(int argc, char* argv[]) {
-  if (connectToBackend()) {
+  if (argc < 2) {
+    std::cout << "Usage : ./internalClientTest <ship_id>\n";
+    exit(1);
+  }
+  unsigned long ship_id = strtoul(argv[1], NULL, 10);
+  if (connectToBackend(ship_id)) {
     std::cout << "Unable to connect to sim!\n";
     exit(1);
   }

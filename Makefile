@@ -34,7 +34,7 @@ proto:
 	}
 
 amazon_server:
-	$(CC) $(CFLAGS) -Wall -pedantic -L/usr/local/lib -I/usr/local/include -o amazon_server amazon_server.cpp amazon.pb.cc internalcom.pb.cc utility.cpp nonBlockingIO/sleepyProtobuff.cc dbHandler.cc -lpqxx -lpq $(EXTRAFLAGS)
+	$(CC) $(CFLAGS) -Wall -pedantic -L/usr/local/lib -I/usr/local/include -o amazon_server utility.cpp amazon_server.cpp amazon.pb.cc internalcom.pb.cc  nonBlockingIO/sleepyProtobuff.cc dbHandler.cc -lpqxx -lpq $(EXTRAFLAGS)
 
 internalClientTest:
-	$(CC) $(CFLAGS) -Wall -pedantic -L/usr/local/lib -I/usr/local/include -o internalClientTest nonBlockingIO/internalClientTest.cc internalcom.pb.cc utility.cpp $(EXTRAFLAGS)
+	$(CC) $(CFLAGS) -Wall -pedantic -L/usr/local/lib -I/usr/local/include -o internalClientTest utility.cpp nonBlockingIO/internalClientTest.cc internalcom.pb.cc  $(EXTRAFLAGS)

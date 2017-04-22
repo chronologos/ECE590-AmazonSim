@@ -43,7 +43,6 @@ void WriteBytes(int socket, std::string str) {
 }
 */
 
-
 //this is adpated from code that a google engineer posted online                                  
 template<typename T> bool sendMesgTo(const T & message,
                                      google::protobuf::io::FileOutputStream *out) {
@@ -82,15 +81,18 @@ template<typename T> bool recvMesgFrom(T & message,
   // Read the size.                                                                               
   uint32_t size;
   if (!input.ReadVarint32(&size)) {
+    std::cout << "Unable to read size of message!\n";
     return false;
   }
   // Tell the stream not to read beyond that size.                                                
   ::google::protobuf::io::CodedInputStream::Limit limit = input.PushLimit(size);
   // Parse the message.                                                                           
   if (!message.MergeFromCodedStream(&input)) {
+    std::cout << "Unable to parse message!\n";
     return false;
   }
   if (!input.ConsumedEntireMessage()) {
+    std::cout << "Message not yet fully consumed!\n";
     return false;
   }
   // Release the limit.                                                                           
@@ -99,14 +101,25 @@ template<typename T> bool recvMesgFrom(T & message,
 }
 
 
-//template<typename T> bool sendMsgToSocket(const T & message, int fd) {
-bool sendMsgToSocket(const ::google::protobuf::Message & message, int fd) {
+
+template<typename T> bool sendMsgToSocket(const T & message, int fd) {
+//bool sendMsgToSocket(const ::google::protobuf::Message & message, int fd) {
   google::protobuf::io::FileOutputStream fs(fd);
   return sendMesgTo(message, &fs);
 }
 
-//template<typename T> bool recvMsgFromSocket(const T & message, int fd) {
-bool recvMsgFromSocket(google::protobuf::Message & message, int fd) {
+template<typename T> bool recvMsgFromSocket(T & message, int fd) {
+//bool recvMsgFromSocket(google::protobuf::Message & message, int fd) {
   google::protobuf::io::FileInputStream fs(fd);
   return recvMesgFrom(message, &fs);
 }
+
+template bool sendMsgToSocket<AConnect>(AConnect const&, int);
+template bool recvMsgFromSocket<AConnected>(AConnected &, int);
+template bool recvMsgFromSocket<AResponses>(AResponses &, int);
+template bool sendMsgToSocket<OrderReply>(OrderReply const&, int);
+template bool sendMsgToSocket<APurchaseMore>(APurchaseMore const&, int);
+template bool sendMsgToSocket<ACommands>(ACommands const&, int);
+template bool recvMsgFromSocket<Order>(Order&, int);
+template bool sendMsgToSocket<Order>(Order const&, int);
+template bool recvMsgFromSocket<OrderReply>(OrderReply &, int);

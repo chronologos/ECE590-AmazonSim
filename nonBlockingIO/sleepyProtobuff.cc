@@ -16,30 +16,46 @@ int purchaseMore(unsigned long shipid, int sim_sock) {
       nextProduct.set_count(std::get<2>(shipProduct));
       productMsgs.push_back(nextProduct);
    }
-   // Initialize APurchaseMore object
+   // Must wrap with an ACommands message type?
+   ACommands aCommands;
+   // Initialize APack message
+   APack aPack;
+   aPack.set_whnum(1); // TEMP
+   aPack.set_shipid(shipid);
+   // Initialize APurchaseMore message
    APurchaseMore purchaseMsg;
    purchaseMsg.set_whnum(1); // TBD
    // Iterate through vector, for each product item
    for (std::vector<AProduct>::iterator it = productMsgs.begin(); it < productMsgs.end(); it ++) {
       // add_APurchase on the APurchaseMore object
       AProduct* addedProduct = purchaseMsg.add_things();
-      *addedProduct = *it;
+      *addedProduct = *it; // Adds to the APurchaseMore message 
+      addedProduct = aPack.add_things();
+      *addedProduct = *it; // Adds to the APack message
    }
    // sendMsgToSocket with aPurchaseMore, sim_sock
-   if (!sendMsgToSocket(*((google::protobuf::Message*)&purchaseMsg), sim_sock)) {
-      std::cout << "Error sending buy message for shipment " << shipid << "\n!";
+   //if (!sendMsgToSocket(*((google::protobuf::Message*)&purchaseMsg), sim_sock)) { // Handling of this response can be done by main thread
+   APurchaseMore* newPurchase = aCommands.add_buy();
+   *newPurchase = purchaseMsg;
+   APack* newPack = aCommands.add_topack();
+   *newPack = aPack;
+
+   //if (!sendMsgToSocket(purchaseMsg, sim_sock)) { // Handling of this response can be done by main thread
+   if (!sendMsgToSocket(aCommands, sim_sock)) { // Handling of this response can be done by main thread
+      std::cout << "Error sending APurchaseMore and APack messages for shipment " << shipid << "\n!";
       // TO-DO : Need to trigger some follow-up action
    }
    else {
-      std::cout << "Successfully restocked for shipment " << shipid << "!\n";
+      //std::cout << "Successfully restocked for shipment " << shipid << "!\n";
+      std::cout << "Successfully sent APurchaseMore and APack commands for shipid " << shipid << "!\n";
       // INSERT INTO TrackingNumbers table in DB
-      if (initShipmentState(shipid)) { // Impossible to return error for now
+      if (initShipmentState(shipid)) { 
          std::cout << "Unable to enter shipment into database!\n";
          return -1;
       }
       std::cout << "Successfully entered shipment into TrackingNumbers table!\n";
-     // TO-DO : INSERT INTO INVENTORY DB
-      return updateInventory(shipid);
+     // Send sim APack command
+      return 0;
    }
    // return 0 if success, -1 if failure
    return -1;
@@ -165,7 +181,9 @@ int sleepyListen(int sim_sock) {
    				else { // Not listen fd - perform read
    					int numRead;
                   Order order;
-                  if (!recvMsgFromSocket(*((google::protobuf::Message*)&order), i)) {
+                  //if (!recvMsgFromSocket(*((google::protobuf::Message*)&order), i)) {
+                  if (!recvMsgFromSocket(order, i)) {
+                  
                      std::cout << "Unable to read internal proto message\n";
                      // close socket and remove from list
                      close(i);
@@ -184,7 +202,7 @@ int sleepyListen(int sim_sock) {
                         std::cout << "Error purchasing more of products consumed by shipid " << shipid << "\n";
                      }
                      else {
-                        std::cout << "Successfully purchased more!\n";
+                        std::cout << "Successfully requested to purchase more!\n";
                      }
                   }
    				}
@@ -213,7 +231,8 @@ int sleepyListen(int sim_sock) {
                   orderReply.set_error(errorStr);
                }
                // Serialize and write protobuff
-               if (!sendMsgToSocket(*((google::protobuf::Message*)&orderReply), i)) {
+               //if (!sendMsgToSocket(*((google::protobuf::Message*)&orderReply), i)) {
+               if (!sendMsgToSocket(orderReply, i)) {
                   std::cout << "Error writing orderReply to client\n";
                }
                else {
