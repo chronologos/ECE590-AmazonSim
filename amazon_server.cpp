@@ -64,9 +64,7 @@ int connectToSim() {
   std::cout << "Successfully connected to sim on  socket " << socket_fd << "\n";
   int sim_sock = socket_fd;
   AConnect test;
-  test.set_worldid(1003);
-  //std::cout << "World id of connect message: " << test.worldid() << "\n";
-  //sendMsgToSocket(*((google::protobuf::Message*)&test), socket_fd); 
+  test.set_worldid(1004);
 
   // TO - DO : Make number and/or position of warehouses configurable with command-line args?
   /*
@@ -94,9 +92,20 @@ int connectToSim() {
   }
   puts("Success!");
   //close(socket_fd);
+
+  // Set sim socket to be non-blocking
+  int argp = 1;
+  if (ioctl(sim_sock, FIONBIO, (char*)&argp) < 0) {
+      perror("ioctl() on sim sock failed");
+      close(sim_sock);
+      return -1;
+   }
+  std::cout << "Set sim socket to be non-blocking!\n";
   return sim_sock;
 }
 
+
+// Need to iterate through 
 void handleArrived(ACommands * aCommands, AResponses * aResponses, int * result) {
   if (aResponses->arrived_size() == 0) {
     std::cout << "This AResponse has no 'arrived' messages\n";
@@ -119,13 +128,15 @@ void handleArrived(ACommands * aCommands, AResponses * aResponses, int * result)
       }
       else {
         std::cout << "Successfully updated inventory of product with id " << product_id << "\n";
+        // Check which shipids can now be sent for packing
       }
     }
   }
   std::cout << "Done handling 'arrived' responses from sim\n";
 }
 
-void handleReady(ACommands * aCommands, AResponses * aResponses, int * result) { // Increment FSM_STATE of shipids in TrackingNumbers table and send APutOnTruck message 
+// Increment FSM_STATE of shipids in TrackingNumbers table and send APutOnTruck message 
+void handleReady(ACommands * aCommands, AResponses * aResponses, int * result) { 
   if (aResponses->ready_size() == 0) {
     std::cout << "This AResponse has no 'ready' messages\n";
     return;
@@ -139,11 +150,13 @@ void handleReady(ACommands * aCommands, AResponses * aResponses, int * result) {
   for (int num = 0; num < aResponses->ready_size(); num ++) {
     shipid = aResponses->ready(num);
     // increment FSM_STATE
-    if (incrementShipmentState(shipid) < 0) {
+    if (incrementShipmentState(shipid) < 0) { // TEMP - MIGHT HAVE TO REPLACE BY CHECKING OF CURRENT STATE AND USING SET SHIPMENT STATE, depending on whether UPS truck has arrived
       std::cout << "Error incrementing FSM_STATE of shipid " << shipid << " from packing to loading\n"; // TO-DO : Error-Recovery follow-up action?
       *result = 0; // flag error
       continue; // TBD - Skip this shipment but continue processing other shiments?
     }
+    
+    // ONLY EXECUTE THE BELOW IF FSM_STATE == (READY AND TRUCK_ARRIVED)
     // shipment state for this shipid is set as loading
     // Construct APutOnTruck message and add to aCommands
     load.set_shipid(shipid);
@@ -153,8 +166,24 @@ void handleReady(ACommands * aCommands, AResponses * aResponses, int * result) {
   std::cout << "Done handling 'ready' responses from sim\n";
 }
 
+// Increment FSM_STATE of shipids in TrackingNumbers table and send custom 'Deliver' message to UPS
 void handleLoaded(ACommands * aCommands, AResponses * aResponses, int * result) {
-
+  if (aResponses->loaded_size() == 0) {
+    std::cout << "This AResponse has no 'loaded' messages\n";
+    return;
+  }
+  unsigned long shipid;
+  for (int num = 0; num < aResponses->loaded_size(); num ++) {
+    shipid = aResponses->loaded(num);
+    // increment FSM_STATE
+    if (incrementShipmentState(shipid) < 0) {
+      std::cout << "Error incrementing FSM_STATE of shipid " << shipid << " from loading to loaded\n"; // TO-DO : Error-Recovery follow-up action?
+      *result = 0; // flag error
+      continue; // TBD - Skip this shipment but continue processing other shiments?
+    }
+    // TO-DO : Construct custom Message for sending to UPS for commencing delivery? Need truckid, whid, shipid?
+  }
+  std::cout << "Done handling 'loaded' responses from sim\n";
 }
 
 int handleError(ACommands * aCommands, AResponses * aResponses, int * result) {
@@ -189,8 +218,7 @@ ACommands handleAResponses(AResponses * aResponses, int * result) {
 }
 
 // Select loop of main server
-int talkToSim(int sim_sock) { // Already connected to the socket by now
-
+void talkToSim(int sim_sock) { // Already connected to the socket by now
   struct fd_set master_set, read_set, write_set;
   int available;
   //struct timeval timeout; // Use no timeout?
@@ -241,6 +269,18 @@ int talkToSim(int sim_sock) { // Already connected to the socket by now
   close(sim_sock);
 }
 
+/*
+// Select loop of UPS thread
+void talkToUPS(int ups_sock) {
+
+}
+
+std::thread * launchUPSMessenger() {
+  std::thread
+
+
+}
+*/
 
 int main(int argc, char* argv[]) {
   int sim_sock;
@@ -252,9 +292,8 @@ int main(int argc, char* argv[]) {
   std::thread * internalServer = launchInternalServer(sim_sock);
   std::cout << "Successfully launched internal server\n";
   /*
-  while(1) { // select loop on socket with sim server
-
-  }
+  std::cout << "About to launch UPS comm server\n";
+  std::thread * upsMessenger = launchUPSMessenger();
   */
   std::cout << "Main thread about to enter select loop on sim socket\n";
   talkToSim(sim_sock);

@@ -37,6 +37,7 @@ int purchaseMore(unsigned long shipid, int sim_sock) {
    //if (!sendMsgToSocket(*((google::protobuf::Message*)&purchaseMsg), sim_sock)) { // Handling of this response can be done by main thread
    APurchaseMore* newPurchase = aCommands.add_buy();
    *newPurchase = purchaseMsg;
+   
    APack* newPack = aCommands.add_topack();
    *newPack = aPack;
 
@@ -54,7 +55,7 @@ int purchaseMore(unsigned long shipid, int sim_sock) {
          return -1;
       }
       std::cout << "Successfully entered shipment into TrackingNumbers table!\n";
-     // Send sim APack command
+     // TO - DO : Send UPS a command to send a truck over to the coordinates of the warehouse?
       return 0;
    }
    // return 0 if success, -1 if failure
@@ -258,16 +259,3 @@ std::thread * launchInternalServer(int sim_sock) {
    std::thread * sleepyServer = new std::thread(sleepyListen, sim_sock);
    return sleepyServer;
 }
-
-/*
-int main() {
-	std::cout << "Main thread launching sleepy server thread\n";
-   std::thread sleepyServer(sleepyListen);
-
-   std::cout << "Main thread waiting for sleepy server to be done\n";
-	sleepyServer.join();
-	std::cout << "Sleepy server done, main thread also exiting\n";
-	//sleepyListen();
-	exit(0);
-}
-*/

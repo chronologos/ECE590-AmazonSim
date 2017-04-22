@@ -38,10 +38,6 @@ std::vector<std::tuple<unsigned long, std::string, int>> getShipmentProducts(uns
   	std::tuple<unsigned long, std::string, int> purchase(product_id, description, count);
   	products.push_back(purchase);
   }
-  //std::cout << "About to commit txn!\n";
-  // Not needed for SELECT queries, but just a practice
-  //txn.commit();
-  //std::cout << "Txn committed!\n";
   return products;
 }
 
@@ -89,6 +85,17 @@ int initShipmentState(unsigned long shipid) { // TO-DO : Catch exceptions?
       return -1;
     }
 }
+
+int setShipmentState(unsigned long shipid, int state) {
+  pqxx::connection c{"dbname=amazonsim user=radithya"};
+  pqxx::work txn{c};
+  std::string queryString("UPDATE trackingnumbers\nSET fsm_state=" + std::to_string(state) + " WHERE ship_id=" + std::to_string(shipid));
+  pqxx::result r = txn.exec(queryString);
+  txn.commit();
+  std::cout << "Succesfully updated fsm_state of shipid " << shipid << " to " << state << "\n";
+  return state;
+}
+
 
 // Increment FSM state of shipment in database
 int incrementShipmentState(unsigned long shipid) {
@@ -146,59 +153,3 @@ int updateInventory(unsigned long productid, int toAdd) {
   std::cout << "Updated amount of product_id " << productid << " to " << newAmount << "\n";
   return newAmount;
 }
-
-
-/*
-int updateInventory(unsigned long shipid) {
-	std::vector<std::tuple<unsigned long, std::string, int>> productsBought = getShipmentProducts(shipid);
-	if (productsBought.size() == 0) {
-		std::cout << "No products associated with shipid " << shipid << "; not updating inventory\n";
-		return 0;
-	}
-	pqxx::connection c{"dbname=amazonsim user=radithya"};
-  	pqxx::work txn{c};
-  	std::string queryString("INSERT INTO inventory (product_id, count, warehouse) VALUES\n");
-  	unsigned long productid;
-  	int count;
-  	int oldAmount;
-  	std::tuple<unsigned long, std::string, int> product;
-  	for (std::vector<std::tuple<unsigned long, std::string, int>>::iterator it = productsBought.begin(); it < productsBought.end() - 1; it ++) {
-  		
-      // incrementing the inventory of a single product
-      product = *it;
-  		productid = std::get<0>(product);
-  		count = std::get<2>(product);
-  		oldAmount = getInventory(productid);
-  		if (oldAmount < 0) {
-  			std::cout << "Missing item with productid " << productid << " detected while trying to update inventory; skipping\n"; // TBD - Should abort whole update or just skip this product?
-  			//continue;
-  			return -1;
-  		}
-  		queryString += "(" + std::to_string(productid) + ", " + std::to_string(oldAmount + count) + "),\n"; // Should bother checking for overflow?
-  	}
-  	product = *productsBought.end();
-	productid = std::get<0>(product);
-	count = std::get<2>(product);
-	oldAmount = getInventory(productid);
-	if (oldAmount < 0) {
-		std::cout << "Missing item with productid " << productid << " detected while trying to update inventory; skipping\n"; // TBD - Should abort whole updatef instead?
-		return -1;
-	}
-  	queryString += "(" + std::to_string(productid) + ", " + std::to_string(oldAmount + count) + ")\n";
-  	std::cout << "Query string for update: " << queryString << "\n";
-  	pqxx::result r = txn.exec(queryString);
-  	txn.commit();
-  	std::cout << "Succesfully updated inventory for shipid " << shipid << "\n";
-  	return 0;
-}
-*/
-
-/*
-int main() {
-	std::vector<std::tuple<unsigned long, std::string, int>> posResults = getShipmentProducts(1324);
-	std::cout << "No. of results for existing key: " << posResults.size() << "\n";
-	std::vector<std::tuple<unsigned long, std::string, int>> negResults = getShipmentProducts(234234);
-	std::cout << "No. of results for non-existent key: " << negResults.size() << "\n";
-	return 0;
-}
-*/
