@@ -46,7 +46,7 @@ std::vector<std::tuple<unsigned long, std::string, int>> getShipmentProducts(uns
 int getShipmentState(unsigned long shipid) {
 	pqxx::connection c{"dbname=amazonsim user=radithya"};
   	pqxx::work txn{c};
-  	std::string queryString("SELECT fsm_sate FROM trackingnumbers WHERE ship_id = " + std::to_string(shipid));
+  	std::string queryString("SELECT fsm_state FROM trackingnumbers WHERE ship_id = " + std::to_string(shipid));
   	//std::cout << "Query String: " << queryString << "\n";
   	pqxx::result r = txn.exec(queryString);
   	if (r.size() == 0) {

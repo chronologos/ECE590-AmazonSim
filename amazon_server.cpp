@@ -29,6 +29,7 @@ using namespace std;
 std::map<unsigned long, int> shipmentStatus; // a cache over the TrackingNumbers table in DB
 //std::map<int, unsigned long> socksToShipments; // map used by internal server mapping socket FDs to shipment numbers
 
+int SIM_SPEED = 120;
 
 int connectToSim() {  
   int status;
@@ -64,7 +65,7 @@ int connectToSim() {
   std::cout << "Successfully connected to sim on  socket " << socket_fd << "\n";
   int sim_sock = socket_fd;
   AConnect test;
-  test.set_worldid(1004);
+  test.set_worldid(1003);
 
   // TO - DO : Make number and/or position of warehouses configurable with command-line args?
   /*
@@ -106,10 +107,10 @@ int connectToSim() {
 
 
 // Need to iterate through 
-void handleArrived(ACommands * aCommands, AResponses * aResponses, int * result) {
+int handleArrived(ACommands * aCommands, AResponses * aResponses, int * result) {
   if (aResponses->arrived_size() == 0) {
     std::cout << "This AResponse has no 'arrived' messages\n";
-    return;
+    return 0;
   }
   APurchaseMore aPurchaseMore;
   AProduct aProduct;
@@ -133,20 +134,22 @@ void handleArrived(ACommands * aCommands, AResponses * aResponses, int * result)
     }
   }
   std::cout << "Done handling 'arrived' responses from sim\n";
+  return aResponses->arrived_size();
 }
 
 // Increment FSM_STATE of shipids in TrackingNumbers table and send APutOnTruck message 
-void handleReady(ACommands * aCommands, AResponses * aResponses, int * result) { 
+int handleReady(ACommands * aCommands, AResponses * aResponses, int * result) { 
   if (aResponses->ready_size() == 0) {
     std::cout << "This AResponse has no 'ready' messages\n";
-    return;
+    return 0;
   }
   unsigned long shipid;
   //int whnum; 
   //int truckid; TEMP - JUST 1 FOR NOW; SOON NEED TO TALK TO UPS TEAM FOR COORDINATION
   APutOnTruck load;
   load.set_whnum(1); // TEMP
-  load.set_truckid(1); // TEMP
+  //load.set_truckid(1); // TEMP
+  load.set_truckid(0); // TEMP
   for (int num = 0; num < aResponses->ready_size(); num ++) {
     shipid = aResponses->ready(num);
     // increment FSM_STATE
@@ -164,13 +167,14 @@ void handleReady(ACommands * aCommands, AResponses * aResponses, int * result) {
     *newLoad = load;
   }
   std::cout << "Done handling 'ready' responses from sim\n";
+  return aResponses->ready_size();
 }
 
 // Increment FSM_STATE of shipids in TrackingNumbers table and send custom 'Deliver' message to UPS
-void handleLoaded(ACommands * aCommands, AResponses * aResponses, int * result) {
+int handleLoaded(ACommands * aCommands, AResponses * aResponses, int * result) {
   if (aResponses->loaded_size() == 0) {
     std::cout << "This AResponse has no 'loaded' messages\n";
-    return;
+    return 0;
   }
   unsigned long shipid;
   for (int num = 0; num < aResponses->loaded_size(); num ++) {
@@ -184,6 +188,7 @@ void handleLoaded(ACommands * aCommands, AResponses * aResponses, int * result) 
     // TO-DO : Construct custom Message for sending to UPS for commencing delivery? Need truckid, whid, shipid?
   }
   std::cout << "Done handling 'loaded' responses from sim\n";
+  return aResponses->loaded_size();
 }
 
 int handleError(ACommands * aCommands, AResponses * aResponses, int * result) {
@@ -205,15 +210,29 @@ ACommands handleAResponses(AResponses * aResponses, int * result) {
     *result = 0;
     return aCommands;
   }
+  /*
   if (!aResponses->has_finished()) { // nothing to do
     std::cout << "This AResponse has no 'finished' flag, treating as mere ack\n";
     *result = 0;
     return aCommands;
 
   }
-  handleArrived(&aCommands, aResponses, result);
-  handleReady(&aCommands, aResponses, result);
-  handleLoaded(&aCommands, aResponses, result);
+  */
+  if (aResponses->has_finished()) { // can proceed to close socket
+    *result = 0;
+    return aCommands;
+  }
+  int totalHandled = 0;
+  totalHandled += handleArrived(&aCommands, aResponses, result);
+  totalHandled += handleReady(&aCommands, aResponses, result);
+  totalHandled += handleLoaded(&aCommands, aResponses, result);
+
+  aCommands.set_simspeed(SIM_SPEED);
+
+  if (totalHandled == 0) {
+    std::cout << "Nothing to do for this response, treating as mere ack\n";
+    *result = 0;
+  }
   return aCommands;
 }
 

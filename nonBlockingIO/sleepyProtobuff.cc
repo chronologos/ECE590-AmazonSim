@@ -1,6 +1,9 @@
 #include "./sleepyProtobuff.h"
 /* ADAPTED FROM IBM Knowledge Center - "https://www.ibm.com/support/knowledgecenter/en/ssw_i5_54/rzab6/xnonblock.htm" */
 
+int BUY_PACK_SIM_SPEED = 120;
+
+
 int purchaseMore(unsigned long shipid, int sim_sock) {
    // Initialize vector of AProduct messages
    std::vector<AProduct> productMsgs;
@@ -40,6 +43,9 @@ int purchaseMore(unsigned long shipid, int sim_sock) {
    
    APack* newPack = aCommands.add_topack();
    *newPack = aPack;
+
+
+   aCommands.set_simspeed(BUY_PACK_SIM_SPEED); // TO-DO : Make it a configurable command-line param
 
    //if (!sendMsgToSocket(purchaseMsg, sim_sock)) { // Handling of this response can be done by main thread
    if (!sendMsgToSocket(aCommands, sim_sock)) { // Handling of this response can be done by main thread
