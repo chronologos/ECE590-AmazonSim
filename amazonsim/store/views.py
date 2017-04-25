@@ -12,13 +12,15 @@ from django.contrib.auth.decorators import login_required
 from .forms import *
 
 from google.protobuf.internal.decoder import _DecodeVarint32
-from google.protobuf.internal.encoder import _EncodeVarint
+from google.protobuf.internal.encoder import _EncodeVarint as varintEncoder
 import internalcom_pb2
 import socket
 import struct
 
-CPP_HOST = "localhost"
-CPP_PORT = 12345
+# CPP_HOST = "localhost"
+CPP_HOST = "10.190.67.184"
+# CPP_PORT = 12345
+CPP_PORT = 23456
 SOCKET_TIMEOUT = 0.5
 # Create your views here.
 
@@ -85,12 +87,14 @@ def checkout(request):
     order.shipid = tracking_number.id
     print(order.shipid)
     order_bytes = order.SerializeToString()
+      
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.settimeout(SOCKET_TIMEOUT)
         bytes_size = len(order_bytes)
         print("size is {0}".format(bytes_size))
         s.connect((CPP_HOST, CPP_PORT))
-        s.sendall(struct.pack("!q", bytes_size))
+        varintEncoder(s.send, bytes_size)  
+        # s.sendall(struct.pack("!q", bytes_size))
         s.sendall(order_bytes)
         # minus from Inventory
         # make shipment item
