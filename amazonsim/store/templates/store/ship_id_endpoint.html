@@ -1,8 +1,13 @@
 {% extends "store/base.html" %}
 {% block title %}Shipping ID Info{% endblock %}
 {% block content %}
-<div class="row justify-content-md-center">
-    <h1>{{ message }}</h1>
-
-</div>
+    <h1>{{ title }}</h1>
+    </br>
+    <a href={{ status_url }}> Status </a></br>
+    UPS Account: {{ ups_num }}</br>
+    <ul>
+      {% for item in ship_items %}
+        <li>{{ item.product }} -- Count: {{item.count}} </li>
+      {% endfor %}
+    </ul>
 {% endblock %}

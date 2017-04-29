@@ -17,16 +17,17 @@ class Warehouse(models.Model):
     truck_id = models.IntegerField() # -1 if no truck
      
     def __str__(self):
-        return "warehouse at {0},{1}. truck {2} present.".format(self.x_coord, self.y_coord, self.truck)
+        return "warehouse at {0},{1}. truck {2} present.".format(self.x_coord, self.y_coord, self.truck_id)
 
 
 class Inventory(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     count = models.IntegerField()
+    price = models.IntegerField()
     warehouse = models.ForeignKey(Warehouse, on_delete=models.CASCADE)
 
     def __str__(self):
-        return "product: {0}, # left: {1}".format(self.name, self.count)
+        return "product: {0}, # left: {1}".format(self.product.name, self.count)
 
 class TrackingNumber(models.Model):
     # to dispatch, fsm_state 1,2,3,4 must be empty for a particular warehouse and all products must be in state 5.
@@ -35,6 +36,7 @@ class TrackingNumber(models.Model):
     x_address = models.IntegerField() 
     y_address = models.IntegerField() 
     fsm_state = models.IntegerField() 
+    ups_num = models.IntegerField(null=True) 
     # 0 purchased and not arrived
     # 1 asked to pack and asked for truck
     # 2 packed but no truck

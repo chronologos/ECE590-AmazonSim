@@ -24,8 +24,9 @@ urlpatterns = [
     url(r'^checkout/$', views.checkout, name='checkout'),
     url(r'^logout/$', views.logout, name='logout'),
     url(r'^orders/$', views.orders, name='orders'),
-    url(r'^products/', views.InventoryView.as_view(), name='products'),
+    url(r'^products/$', views.InventoryView.as_view(), name='products'),
+    url(r'^remove/(?P<product_id>[0-9]+)/$', views.remove, name='remove'),
     url(r'^signup/$', views.get_signup, name='signup'),
-    url(r'^s/(?P<ship_id>[0-9]+)/$', views.ship_id_endpoint, name='ship_id_endpoint'),
+    url(r'^(?P<ship_id>[0-9]+)/$', views.ship_id_endpoint, name='ship_id_endpoint'),
     url(r'^$', views.login, name='login'),
 ]

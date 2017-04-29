@@ -1,5 +1,21 @@
 {% extends "store/base.html" %}
-{% block title %}Checkout complete!{% endblock %}
+{% block title %}Checkout{% endblock %}
 {% block content %}
-Your tracking number is {{ tracking_number }}.
+<div class="container">
+  <form action="{% url 'checkout' %}" method="post">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+    <h2>Confirm checkout</h2>
+    {{ form.x_coord.errors }}
+    <label for="{{ form.x_coord.id_for_label }}" class="sr-only">x_coord</label>
+    {{ form.x_coord }}
+    {{ form.y_coord.errors }}
+    <label for="{{ form.y_coord.id_for_label }}" class="sr-only">y_coord</label>
+    {{ form.y_coord }}
+    {{ form.ups_num.errors }}
+    <label for="{{ form.ups_num.id_for_label }}" class="sr-only">UPS Account No. (Optional)</label>
+    {{ form.ups_num }}
+    <button class="btn btn-lg btn-primary btn-block" type="submit">Checkout</button>
+  </form>
+</div>
 {% endblock %}

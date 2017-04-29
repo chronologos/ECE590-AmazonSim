@@ -1,9 +1,27 @@
 {% extends "store/base.html" %}
 {% block title %}The world's best webstore{% endblock %}
 {% block content %}
-<ul>
-  {% for item in inventory_items %}
-    <li>{{ item.product }} -- Stock: {{item.count}} -- Warehouse: {{item.warehouse}} <a href="/buy/{{item.id}}">Buy</a> </li>
-  {% endfor %}
-</ul>
+<div class=container>
+	<div class="row">
+		{% for item in inventory_items %}
+		<div class="col-md-4">
+			</br>
+			<div class="card text-center" >
+				<div class="card-block">
+					{{ item.product }}
+				</div>
+				<ul class="list-group list-group-flush">
+					<li class="list-group-item"> ${{ item.price }}</li>
+					<li class="list-group-item">Availability: {{ item.warehouse }}</li>
+					<li class="list-group-item">Stock: {{ item.count }}</li>
+					<li class="list-group-item">{{ item.product.description }} </li>
+				</ul>
+				<div class="card-block">
+					<a href="/buy/{{item.product.id}}">Buy</a> 
+				</div>
+			</div>
+		</div>
+		{% endfor %}
+	</div>
+</div>
 {% endblock %}
