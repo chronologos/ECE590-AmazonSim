@@ -5,6 +5,8 @@ from django.contrib.auth.models import User
 class Product(models.Model):
     name = models.TextField()
     description = models.TextField()
+    rating = models.IntegerField()
+    num_ratings = models.IntegerField()
 
     def __str__(self):
         return self.name
