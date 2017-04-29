@@ -36,23 +36,27 @@ class InventoryView(generic.ListView):
 
     def get_queryset(self):
         """Return the last five published questions."""
-        if not self.request.GET: 
+        if not self.request.GET:
             return Inventory.objects.all()
         else:
             print(self.request.GET)
             filter_text = self.request.GET['filter_text']
             self.request.session['saved_search'] = filter_text
-            return Inventory.objects.filter(product__name__contains=filter_text).all().union(
-                        Inventory.objects.filter(product__description__contains=filter_text).all()
-                    )
+            return Inventory.objects.filter(
+                product__name__contains=filter_text).all().union(
+                Inventory.objects.filter(
+                    product__description__contains=filter_text).all())
 
     def get_context_data(self, **kwargs):
             # Call the base implementation first to get a context
-            shipitems_purchased_before = ShipmentItem.objects.filter(tracking_number__user=self.request.user).all()
-            products_purchased_before = Product.objects.filter(shipmentitem__in=shipitems_purchased_before).distinct()
-            context = super(InventoryView, self).get_context_data(**kwargs)
-            context['purchased_before'] = set(products_purchased_before)
-            return context
+        shipitems_purchased_before = ShipmentItem.objects.filter(
+            tracking_number__user=self.request.user).all()
+        products_purchased_before = Product.objects.filter(
+            shipmentitem__in=shipitems_purchased_before).distinct()
+        context = super(InventoryView, self).get_context_data(**kwargs)
+        context['purchased_before'] = set(products_purchased_before)
+        return context
+
 
 @login_required(login_url='/')
 def buy(request, product_id):
@@ -76,14 +80,21 @@ def buy(request, product_id):
     else:
         form = BuyForm()
         p = Product.objects.get(id=product_id)
-        context = {'product_id': product_id, 'form': form, 'product':p}
+        context = {'product_id': product_id, 'form': form, 'product': p}
     return render(request, 'store/buy.html', context)
+
 
 def remove(request, product_id):
     cart = getcart(request)
-    CartItem.objects.filter(shopping_cart_id=cart.id).filter(product=product_id).delete()
-    print(CartItem.objects.filter(shopping_cart_id=cart.id).filter(product=product_id).all())
-    return render(request, 'store/cart.html', {"message":"removed items!"})
+    CartItem.objects.filter(
+        shopping_cart_id=cart.id).filter(
+        product=product_id).delete()
+    print(
+        CartItem.objects.filter(
+            shopping_cart_id=cart.id).filter(
+            product=product_id).all())
+    return render(request, 'store/cart.html', {"message": "removed items!"})
+
 
 @login_required(login_url='/')
 def cart(request):
@@ -94,11 +105,13 @@ def cart(request):
     print(cart_items)
     return render(request, 'store/cart.html', context)
 
+
 @login_required(login_url='/')
 def checkout(request):
     cart = getcart(request)
     cart_items = CartItem.objects.filter(shopping_cart_id=cart.id).all()
-    warehouse_id = Warehouse.objects.all()[0] # TODO/NOTE this only works if all warehouses hold same inventory
+    # TODO/NOTE this only works if all warehouses hold same inventory
+    warehouse_id = Warehouse.objects.all()[0]
     total_price = 0
     if request.method == 'POST':
         form = CheckoutForm(request.POST, request=request)
@@ -107,29 +120,46 @@ def checkout(request):
             y_coord = form.cleaned_data['y_coord']
             ups_num = form.cleaned_data['ups_num']
 
-            # save address and ups num for convenience, used in CheckoutForm placeholder
+            # save address and ups num for convenience, used in CheckoutForm
+            # placeholder
             request.session['x_coord'] = x_coord
             request.session['y_coord'] = y_coord
             request.session['ups_num'] = ups_num
         else:
-            return render(request, 'store/checkout.html', {'message':'form invalid'})
+            return render(request, 'store/checkout.html',
+                          {'message': 'form invalid'})
 
-        tracking_number = TrackingNumber(fsm_state=1, user=request.user, x_address=x_coord, y_address=y_coord, truck_id=-1, warehouse=warehouse_id, ups_num=ups_num)
+        tracking_number = TrackingNumber(
+            fsm_state=1,
+            user=request.user,
+            x_address=x_coord,
+            y_address=y_coord,
+            truck_id=-1,
+            warehouse=warehouse_id,
+            ups_num=ups_num)
         tracking_number.save()
-        
-        for item in cart_items:
-            if not Inventory.objects.filter(warehouse=warehouse_id).filter(product=item.product).exists():
-                return render(request, 'store/checkout.html', {"message":"product out of stock"})
 
-            inventory_item = Inventory.objects.filter(warehouse=warehouse_id).get(product=item.product)
+        for item in cart_items:
+            if not Inventory.objects.filter(warehouse=warehouse_id).filter(
+                    product=item.product).exists():
+                return render(request, 'store/checkout.html',
+                              {"message": "product out of stock"})
+
+            inventory_item = Inventory.objects.filter(
+                warehouse=warehouse_id).get(
+                product=item.product)
             total_price += (inventory_item.price * item.count)
             if inventory_item.count < item.count:
-                return render(request, 'store/checkout.html', {"message":"not enough stock to fulfill request"})
+                return render(request, 'store/checkout.html',
+                              {"message": "not enough stock to fulfill request"})
             product = item.product
             count = item.count
             inventory_item.count -= count
             inventory_item.save()
-            shipment_item = ShipmentItem(tracking_number=tracking_number, product=product, count=count)
+            shipment_item = ShipmentItem(
+                tracking_number=tracking_number,
+                product=product,
+                count=count)
             shipment_item.save()
 
         # send tracking_number to CPP server
@@ -137,43 +167,53 @@ def checkout(request):
         order.shipid = tracking_number.id
         print(order.shipid)
         order_bytes = order.SerializeToString()
-         
+
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.settimeout(SOCKET_TIMEOUT)
                 bytes_size = len(order_bytes)
                 print("size is {0}".format(bytes_size))
                 s.connect((CPP_HOST, CPP_PORT))
-                varintEncoder(s.send, bytes_size)  
+                varintEncoder(s.send, bytes_size)
                 # s.sendall(struct.pack("!q", bytes_size))
                 s.sendall(order_bytes)
                 # minus from Inventory
                 # make shipment item
                 # return tracking number
         except socket.timeout:
-            return render(request, 'store/checkout.html', {"message":"backend error: socket timed out."})
+            return render(request, 'store/checkout.html',
+                          {"message": "backend error: socket timed out."})
 
         CartItem.objects.filter(shopping_cart_id=cart.id).delete()
-        context = {'message': 'checked out! your tracking number is {0}'.format(tracking_number.id), 'price':total_price}
+        context = {
+            'message': 'checked out! your tracking number is {0}'.format(
+                tracking_number.id),
+            'price': total_price}
         return render(request, 'store/checkout.html', context)
     else:
         form = CheckoutForm(request=request)
         for item in cart_items:
-            if not Inventory.objects.filter(warehouse=warehouse_id).filter(product=item.product).exists():
-                return render(request, 'store/checkout.html', {"message":"product out of stock"})
+            if not Inventory.objects.filter(warehouse=warehouse_id).filter(
+                    product=item.product).exists():
+                return render(request, 'store/checkout.html',
+                              {"message": "product out of stock"})
 
-            inventory_item = Inventory.objects.filter(warehouse=warehouse_id).get(product=item.product)
+            inventory_item = Inventory.objects.filter(
+                warehouse=warehouse_id).get(
+                product=item.product)
             total_price += (inventory_item.price * item.count)
-        return render(request, 'store/checkout.html', {'form': form, 'price':total_price})
+        return render(request, 'store/checkout.html',
+                      {'form': form, 'price': total_price})
+
 
 @login_required(login_url='/')
 def orders(request):
     orders = TrackingNumber.objects.filter(user=request.user).all()
     ordermap = {}
     for order in orders:
-        items = ShipmentItem.objects.filter(tracking_number = order.id).all()
+        items = ShipmentItem.objects.filter(tracking_number=order.id).all()
         ordermap[order.id] = items
-    context = {"orders" : ordermap}
+    context = {"orders": ordermap}
     print(ordermap)
     return render(request, 'store/orders.html', context)
 
@@ -183,13 +223,20 @@ def ship_id_endpoint(request, ship_id):
         tracking_number = TrackingNumber.objects.get(id=ship_id)
         ship_items = ShipmentItem.objects.filter(tracking_number=ship_id)
         ups_num = tracking_number.ups_num
-        context = {'title': "Shipment # {0}".format(ship_id), "ship_items": ship_items, 'message':"", 'ups_num':ups_num, 'status_url':"{0}:{1}/{2}".format(UPS_HOST, UPS_PORT,ship_id)}
+        context = {
+            'title': "Shipment # {0}".format(ship_id),
+            "ship_items": ship_items,
+            'message': "",
+            'ups_num': ups_num,
+            'status_url': "{0}:{1}/{2}".format(
+                UPS_HOST,
+                UPS_PORT,
+                ship_id)}
         return render(request, 'store/ship_id_endpoint.html', context)
     else:
         context = {'title': "Error", 'message': "No such shipping id"}
         return render(request, 'store/ship_id_endpoint.html', context)
- 
-    
+
 
 def get_signup(request):
     if request.method == 'POST':
@@ -227,6 +274,7 @@ def login(request):
 def logout(request):
     llogout(request)
     return render(request, 'store/loggedout.html', {})
+
 
 def getcart(request):
     """ Helper that returns a user's cart, creating if it doesn't exist."""
