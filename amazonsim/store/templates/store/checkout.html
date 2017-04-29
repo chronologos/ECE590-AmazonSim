@@ -2,10 +2,11 @@
 {% block title %}Checkout{% endblock %}
 {% block content %}
 <div class="container">
+   <h3> Total: ${{ price }} </h3>
   <form action="{% url 'checkout' %}" method="post">
     {% csrf_token %}
     {{ form.non_field_errors }}
-    <h2>Confirm checkout</h2>
+    <h3>Confirm checkout</h3>
     {{ form.x_coord.errors }}
     <label for="{{ form.x_coord.id_for_label }}" class="sr-only">x_coord</label>
     {{ form.x_coord }}

@@ -8,7 +8,7 @@
 			</br>
 			<div class="card text-center" >
 				<div class="card-block">
-					{{ item.product }}
+                    {{ item.product }} {% if item.product in purchased_before %} <span class="badge badge-info">Recommended for you</span> {% endif %}
 				</div>
 				<ul class="list-group list-group-flush">
 					<li class="list-group-item"> ${{ item.price }}</li>

@@ -46,6 +46,13 @@ class InventoryView(generic.ListView):
                         Inventory.objects.filter(product__description__contains=filter_text).all()
                     )
 
+    def get_context_data(self, **kwargs):
+            # Call the base implementation first to get a context
+            shipitems_purchased_before = ShipmentItem.objects.filter(tracking_number__user=self.request.user).all()
+            products_purchased_before = Product.objects.filter(shipmentitem__in=shipitems_purchased_before).distinct()
+            context = super(InventoryView, self).get_context_data(**kwargs)
+            context['purchased_before'] = set(products_purchased_before)
+            return context
 
 @login_required(login_url='/')
 def buy(request, product_id):
@@ -89,6 +96,10 @@ def cart(request):
 
 @login_required(login_url='/')
 def checkout(request):
+    cart = getcart(request)
+    cart_items = CartItem.objects.filter(shopping_cart_id=cart.id).all()
+    warehouse_id = Warehouse.objects.all()[0] # TODO/NOTE this only works if all warehouses hold same inventory
+    total_price = 0
     if request.method == 'POST':
         form = CheckoutForm(request.POST, request=request)
         if form.is_valid():
@@ -103,22 +114,19 @@ def checkout(request):
         else:
             return render(request, 'store/checkout.html', {'message':'form invalid'})
 
-        warehouse_id = Warehouse.objects.all()[0] # TODO/NOTE this only works if all warehouses hold same inventory
-        cart = getcart(request)
-        cart_items = CartItem.objects.filter(shopping_cart_id=cart.id).all()
         tracking_number = TrackingNumber(fsm_state=1, user=request.user, x_address=x_coord, y_address=y_coord, truck_id=-1, warehouse=warehouse_id, ups_num=ups_num)
         tracking_number.save()
-
+        
         for item in cart_items:
             if not Inventory.objects.filter(warehouse=warehouse_id).filter(product=item.product).exists():
                 return render(request, 'store/checkout.html', {"message":"product out of stock"})
 
-            inv = Inventory.objects.filter(warehouse=warehouse_id).get(product=item.product)
-            if inv.count < item.count:
+            inventory_item = Inventory.objects.filter(warehouse=warehouse_id).get(product=item.product)
+            total_price += (inventory_item.price * item.count)
+            if inventory_item.count < item.count:
                 return render(request, 'store/checkout.html', {"message":"not enough stock to fulfill request"})
             product = item.product
             count = item.count
-            inventory_item = Inventory.objects.get(product=product)
             inventory_item.count -= count
             inventory_item.save()
             shipment_item = ShipmentItem(tracking_number=tracking_number, product=product, count=count)
@@ -146,11 +154,17 @@ def checkout(request):
             return render(request, 'store/checkout.html', {"message":"backend error: socket timed out."})
 
         CartItem.objects.filter(shopping_cart_id=cart.id).delete()
-        context = {'message': 'checked out! your tracking number is {0}'.format(tracking_number.id)}
+        context = {'message': 'checked out! your tracking number is {0}'.format(tracking_number.id), 'price':total_price}
         return render(request, 'store/checkout.html', context)
     else:
         form = CheckoutForm(request=request)
-        return render(request, 'store/checkout.html', {'form': form})
+        for item in cart_items:
+            if not Inventory.objects.filter(warehouse=warehouse_id).filter(product=item.product).exists():
+                return render(request, 'store/checkout.html', {"message":"product out of stock"})
+
+            inventory_item = Inventory.objects.filter(warehouse=warehouse_id).get(product=item.product)
+            total_price += (inventory_item.price * item.count)
+        return render(request, 'store/checkout.html', {'form': form, 'price':total_price})
 
 @login_required(login_url='/')
 def orders(request):
