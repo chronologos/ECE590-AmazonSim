@@ -26,5 +26,6 @@ urlpatterns = [
     url(r'^orders/$', views.orders, name='orders'),
     url(r'^products/', views.InventoryView.as_view(), name='products'),
     url(r'^signup/$', views.get_signup, name='signup'),
+    url(r'^s/(?P<ship_id>[0-9]+)/$', views.ship_id_endpoint, name='ship_id_endpoint'),
     url(r'^$', views.login, name='login'),
 ]

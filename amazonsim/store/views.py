@@ -33,7 +33,7 @@ class InventoryView(generic.ListView):
         """Return the last five published questions."""
         return Inventory.objects.all()
 
-
+@login_required(login_url='/')
 def buy(request, product_id):
     if request.method == 'POST':
         form = BuyForm(request.POST)
@@ -58,6 +58,7 @@ def buy(request, product_id):
     return render(request, 'store/buy.html', context)
 
 
+@login_required(login_url='/')
 def cart(request):
     # TODO return list or queryset to render?
     cart = getcart(request)
@@ -67,6 +68,7 @@ def cart(request):
     return render(request, 'store/cart.html', context)
 
 
+@login_required(login_url='/')
 def checkout(request):
     cart = getcart(request)
     cart_items = CartItem.objects.filter(shopping_cart_id=cart.id).all()
@@ -104,6 +106,7 @@ def checkout(request):
     context = {'tracking_number': tracking_number.id}
     return render(request, 'store/checkout.html', context)
 
+@login_required(login_url='/')
 def orders(request):
     orders = TrackingNumber.objects.filter(user=request.user).all()
     ordermap = {}
@@ -114,6 +117,17 @@ def orders(request):
     print(ordermap)
     return render(request, 'store/orders.html', context)
 
+
+def ship_id_endpoint(request, ship_id):
+    if TrackingNumber.objects.filter(id=ship_id).exists():
+        ship_items = ShipmentItem.objects.filter(tracking_number=ship_id)
+        context = {'message': "Shipment # {0}".format(ship_id), "ship_items": ship_items}
+        return render(request, 'store/ship_id_endpoint.html', context)
+    else:
+        context = {'message': "No such shipping id", "ship_items": []}
+        return render(request, 'store/ship_id_endpoint.html', context)
+ 
+    
 
 def get_signup(request):
     if request.method == 'POST':
@@ -145,12 +159,12 @@ def login(request):
 
     else:
         form = LoginForm()
+        return render(request, 'store/login.html', {'form': form})
 
-    return render(request, 'store/login.html', {'form': form})
 
 def logout(request):
-    logout(request)
-    return HttpResponseRedirect(reverse('login'))
+    llogout(request)
+    return render(request, 'store/loggedout.html', {})
 
 def getcart(request):
     """ Helper that returns a user's cart, creating if it doesn't exist."""
