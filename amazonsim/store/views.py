@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from django.http import HttpResponseRedirect, HttpResponse
+from django.http import HttpResponseRedirect, HttpResponse, JsonResponse
 from store.models import *
 from django.urls import reverse
 from django.views import generic
@@ -29,6 +29,31 @@ CPP_PORT = 23456
 SOCKET_TIMEOUT = 0.5
 # Create your views here.
 
+def rate(request):
+    if request.POST:
+        print("post?") 
+        print(str(request.POST))
+        print(request.POST['productid'])
+        product_id = request.POST['productid']
+        rating = request.POST['rating']
+        product = Product.objects.get(id=product_id)
+        try: 
+            rating = float(rating)
+            if rating > 5 or rating < 0:
+                return HttpResponseRedirect(reverse('products'))
+            product.rating = (product.rating*product.num_ratings + rating)/(product.num_ratings+1)
+            product.num_ratings += 1
+            product.save()
+            return HttpResponseRedirect(reverse('products'))
+        except TypeError as t:
+            return HttpResponseRedirect(reverse('products'))
+    if not request.GET:
+        print("gg") 
+        return JsonResponse({"rating": "error"})
+    else:
+        rating = request.GET['rating']
+        print(rating)
+        return JsonResponse({"rating": rating})
 
 class InventoryView(generic.ListView):
     template_name = 'store/inventory.html'
@@ -40,8 +65,11 @@ class InventoryView(generic.ListView):
             return Inventory.objects.all()
         else:
             print(self.request.GET)
-            filter_text = self.request.GET['filter_text']
-            self.request.session['saved_search'] = filter_text
+            if 'filter_text' in self.request.GET:
+                filter_text = self.request.GET['filter_text']
+                self.request.session['saved_search'] = filter_text
+            else:
+                filter_text = ""
             return Inventory.objects.filter(
                 product__name__contains=filter_text).all().union(
                 Inventory.objects.filter(

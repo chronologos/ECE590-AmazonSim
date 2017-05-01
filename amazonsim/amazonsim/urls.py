@@ -25,6 +25,7 @@ urlpatterns = [
     url(r'^logout/$', views.logout, name='logout'),
     url(r'^orders/$', views.orders, name='orders'),
     url(r'^products/$', views.InventoryView.as_view(), name='products'),
+    url(r'^rate/$', views.rate, name='rate'),
     url(r'^remove/(?P<product_id>[0-9]+)/$', views.remove, name='remove'),
     url(r'^signup/$', views.get_signup, name='signup'),
     url(r'^(?P<ship_id>[0-9]+)/$', views.ship_id_endpoint, name='ship_id_endpoint'),

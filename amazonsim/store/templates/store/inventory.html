@@ -2,26 +2,73 @@
 {% block title %}The world's best webstore{% endblock %}
 {% block content %}
 <div class=container>
-	<div class="row">
-		{% for item in inventory_items %}
-		<div class="col-md-4">
-			</br>
-			<div class="card text-center" >
-				<div class="card-block">
+    <div class="row">
+        {% for item in inventory_items %}
+        <div class="col-md-4">
+            </br>
+            <div class="card text-center" >
+                <div class="card-block">
                     {{ item.product }} {% if item.product in purchased_before %} <span class="badge badge-info">Recommended for you</span> {% endif %}
-				</div>
-				<ul class="list-group list-group-flush">
-					<li class="list-group-item"> ${{ item.price }}</li>
-					<li class="list-group-item">Availability: {{ item.warehouse }}</li>
-					<li class="list-group-item">Stock: {{ item.count }}</li>
-					<li class="list-group-item">{{ item.product.description }} </li>
-				</ul>
-				<div class="card-block">
-					<a href="/buy/{{item.product.id}}">Buy</a> 
-				</div>
-			</div>
-		</div>
-		{% endfor %}
-	</div>
+                </div>
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item"> ${{ item.price }}</li>
+                    <li class="list-group-item">Availability: {{ item.warehouse }}</li>
+                    <li class="list-group-item">Stock: {{ item.count }}</li>
+                    <li class="list-group-item">Description: {{ item.product.description }} </li>
+                    <li class="list-group-item">Rating: {{ item.product.rating }} by {{ item.product.num_ratings }} people</li>
+                </ul>
+                <div class="card-block">
+                    <form id="myForm{{item.id}}">
+                        {% csrf_token %}
+                        <div class="row">
+                        <div class="col-3">
+                                <input id="text-input" class="form-control" type="number" name="rating">
+                            </div>
+                            <div class="col-3">
+                                <input type="submit" class="btn btn-info" value="Rate">
+                                <input type="hidden" class="btn btn-primary" name="productid" value={{item.product.id}}>
+                            </div>
+                    
+                            <div class="col-6">
+                    <a class="btn btn-primary" href="/buy/{{item.id}}">Buy</a> 
+                            </div>
+                        </div>
+                    </form>
+
+                    <script>
+console.log("loaded")
+window.addEventListener("load", function () {
+    function sendData() {
+        var XHR = new XMLHttpRequest();
+        // Bind the FormData object and the form element
+        var FD = new FormData(form);
+        // Define what happens on successful data submission
+        XHR.addEventListener("load", function(event) {
+            alert("Thank you for your feedback.");
+        });
+        // Define what happens in case of error
+        XHR.addEventListener("error", function(event) {
+            alert('Oups! Something goes wrong.');
+        });
+        // Set up our request
+        XHR.open("POST", "/rate/");
+        // The data sent is what the user provided in the form
+        XHR.send(FD);
+    }
+    // Access the form element...
+    var form = document.getElementById("myForm{{item.id}}");
+    // ...and take over its submit event.
+    form.addEventListener("submit", function (event) {
+        event.preventDefault();
+        sendData();
+    });
+});
+                    </script>
+
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
 </div>
 {% endblock %}
