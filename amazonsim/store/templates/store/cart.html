@@ -3,7 +3,7 @@
 {% block content %}
 <ul>
   {% for item in cart_items %}
-    <li>{{ item.product }} -- Stock: {{item.count}} <a href="/buy/{{item.id}}">Remove[TODO]</a> </li>
+    <li>{{ item.product }} -- Stock: {{item.count}} <a href="/remove/{{item.product.id}}">Remove</a> </li>
   {% endfor %}
 </ul>
 <a class="btn btn-primary" href="/checkout">Checkout</a>

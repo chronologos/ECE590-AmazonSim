@@ -1,4 +1,6 @@
-<div class="container">
+{% extends "store/base.html" %}
+{% block title %}You know you want it...{% endblock %}
+{% block content %}
   <form class="form-signin" action="{% url 'login' %}" method="post">
     {% csrf_token %}
     {{ form.non_field_errors }}
@@ -17,3 +19,4 @@
     </p>
   </form>
 </div>
+{% endblock %}

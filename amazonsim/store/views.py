@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from django.http import HttpResponseRedirect, HttpResponse
+from django.http import HttpResponseRedirect, HttpResponse, JsonResponse
 from store.models import *
 from django.urls import reverse
 from django.views import generic
@@ -18,12 +18,42 @@ import socket
 import struct
 
 # CPP_HOST = "localhost"
+PYTHON_PORT = "8000"
+
+UPS_HOST = "localhost"
+UPS_PORT = "8000"
+
 CPP_HOST = "10.190.67.184"
 # CPP_PORT = 12345
 CPP_PORT = 23456
 SOCKET_TIMEOUT = 0.5
 # Create your views here.
 
+def rate(request):
+    if request.POST:
+        print("post?") 
+        print(str(request.POST))
+        print(request.POST['productid'])
+        product_id = request.POST['productid']
+        rating = request.POST['rating']
+        product = Product.objects.get(id=product_id)
+        try: 
+            rating = float(rating)
+            if rating > 5 or rating < 0:
+                return HttpResponseRedirect(reverse('products'))
+            product.rating = (product.rating*product.num_ratings + rating)/(product.num_ratings+1)
+            product.num_ratings += 1
+            product.save()
+            return HttpResponseRedirect(reverse('products'))
+        except TypeError as t:
+            return HttpResponseRedirect(reverse('products'))
+    if not request.GET:
+        print("gg") 
+        return JsonResponse({"rating": "error"})
+    else:
+        rating = request.GET['rating']
+        print(rating)
+        return JsonResponse({"rating": rating})
 
 class InventoryView(generic.ListView):
     template_name = 'store/inventory.html'
@@ -31,7 +61,30 @@ class InventoryView(generic.ListView):
 
     def get_queryset(self):
         """Return the last five published questions."""
-        return Inventory.objects.all()
+        if not self.request.GET:
+            return Inventory.objects.all()
+        else:
+            print(self.request.GET)
+            if 'filter_text' in self.request.GET:
+                filter_text = self.request.GET['filter_text']
+                self.request.session['saved_search'] = filter_text
+            else:
+                filter_text = ""
+            return Inventory.objects.filter(
+                product__name__contains=filter_text).all().union(
+                Inventory.objects.filter(
+                    product__description__contains=filter_text).all())
+
+    def get_context_data(self, **kwargs):
+            # Call the base implementation first to get a context
+        shipitems_purchased_before = ShipmentItem.objects.filter(
+            tracking_number__user=self.request.user).all()
+        products_purchased_before = Product.objects.filter(
+            shipmentitem__in=shipitems_purchased_before).distinct()
+        context = super(InventoryView, self).get_context_data(**kwargs)
+        context['purchased_before'] = set(products_purchased_before)
+        return context
+
 
 @login_required(login_url='/')
 def buy(request, product_id):
@@ -54,8 +107,21 @@ def buy(request, product_id):
             return HttpResponseRedirect(reverse('products'))
     else:
         form = BuyForm()
-        context = {'product_id': product_id, 'form': form}
+        p = Product.objects.get(id=product_id)
+        context = {'product_id': product_id, 'form': form, 'product': p}
     return render(request, 'store/buy.html', context)
+
+
+def remove(request, product_id):
+    cart = getcart(request)
+    CartItem.objects.filter(
+        shopping_cart_id=cart.id).filter(
+        product=product_id).delete()
+    print(
+        CartItem.objects.filter(
+            shopping_cart_id=cart.id).filter(
+            product=product_id).all())
+    return render(request, 'store/cart.html', {"message": "removed items!"})
 
 
 @login_required(login_url='/')
@@ -72,6 +138,7 @@ def cart(request):
 def checkout(request):
     cart = getcart(request)
     cart_items = CartItem.objects.filter(shopping_cart_id=cart.id).all()
+<<<<<<< HEAD
     tracking_number = TrackingNumber(fsm_state=0, user=request.user)
     tracking_number.save()
 
@@ -105,29 +172,135 @@ def checkout(request):
     CartItem.objects.filter(shopping_cart_id=cart.id).delete()
     context = {'tracking_number': tracking_number.id}
     return render(request, 'store/checkout.html', context)
+=======
+    # TODO/NOTE this only works if all warehouses hold same inventory
+    warehouse_id = Warehouse.objects.all()[0]
+    total_price = 0
+    if request.method == 'POST':
+        form = CheckoutForm(request.POST, request=request)
+        if form.is_valid():
+            x_coord = form.cleaned_data['x_coord']
+            y_coord = form.cleaned_data['y_coord']
+            ups_num = form.cleaned_data['ups_num']
+
+            # save address and ups num for convenience, used in CheckoutForm
+            # placeholder
+            request.session['x_coord'] = x_coord
+            request.session['y_coord'] = y_coord
+            request.session['ups_num'] = ups_num
+        else:
+            return render(request, 'store/checkout.html',
+                          {'message': 'form invalid'})
+
+        tracking_number = TrackingNumber(
+            fsm_state=1,
+            user=request.user,
+            x_address=x_coord,
+            y_address=y_coord,
+            truck_id=-1,
+            warehouse=warehouse_id,
+            ups_num=ups_num)
+        tracking_number.save()
+
+        for item in cart_items:
+            if not Inventory.objects.filter(warehouse=warehouse_id).filter(
+                    product=item.product).exists():
+                return render(request, 'store/checkout.html',
+                              {"message": "product out of stock"})
+
+            inventory_item = Inventory.objects.filter(
+                warehouse=warehouse_id).get(
+                product=item.product)
+            total_price += (inventory_item.price * item.count)
+            if inventory_item.count < item.count:
+                return render(request, 'store/checkout.html',
+                              {"message": "not enough stock to fulfill request"})
+            product = item.product
+            count = item.count
+            inventory_item.count -= count
+            inventory_item.save()
+            shipment_item = ShipmentItem(
+                tracking_number=tracking_number,
+                product=product,
+                count=count)
+            shipment_item.save()
+
+        # send tracking_number to CPP server
+        order = internalcom_pb2.Order()
+        order.shipid = tracking_number.id
+        print(order.shipid)
+        order_bytes = order.SerializeToString()
+
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.settimeout(SOCKET_TIMEOUT)
+                bytes_size = len(order_bytes)
+                print("size is {0}".format(bytes_size))
+                s.connect((CPP_HOST, CPP_PORT))
+                varintEncoder(s.send, bytes_size)
+                # s.sendall(struct.pack("!q", bytes_size))
+                s.sendall(order_bytes)
+                # minus from Inventory
+                # make shipment item
+                # return tracking number
+        except socket.timeout:
+            return render(request, 'store/checkout.html',
+                          {"message": "backend error: socket timed out."})
+
+        CartItem.objects.filter(shopping_cart_id=cart.id).delete()
+        context = {
+            'message': 'checked out! your tracking number is {0}'.format(
+                tracking_number.id),
+            'price': total_price}
+        return render(request, 'store/checkout.html', context)
+    else:
+        form = CheckoutForm(request=request)
+        for item in cart_items:
+            if not Inventory.objects.filter(warehouse=warehouse_id).filter(
+                    product=item.product).exists():
+                return render(request, 'store/checkout.html',
+                              {"message": "product out of stock"})
+
+            inventory_item = Inventory.objects.filter(
+                warehouse=warehouse_id).get(
+                product=item.product)
+            total_price += (inventory_item.price * item.count)
+        return render(request, 'store/checkout.html',
+                      {'form': form, 'price': total_price})
+
+>>>>>>> 07fbc125a6b28d6dc8411b3ef086c014d1f3a4c6
 
 @login_required(login_url='/')
 def orders(request):
     orders = TrackingNumber.objects.filter(user=request.user).all()
     ordermap = {}
     for order in orders:
-        items = ShipmentItem.objects.filter(tracking_number = order.id).all()
+        items = ShipmentItem.objects.filter(tracking_number=order.id).all()
         ordermap[order.id] = items
-    context = {"orders" : ordermap}
+    context = {"orders": ordermap}
     print(ordermap)
     return render(request, 'store/orders.html', context)
 
 
 def ship_id_endpoint(request, ship_id):
     if TrackingNumber.objects.filter(id=ship_id).exists():
+        tracking_number = TrackingNumber.objects.get(id=ship_id)
         ship_items = ShipmentItem.objects.filter(tracking_number=ship_id)
-        context = {'message': "Shipment # {0}".format(ship_id), "ship_items": ship_items}
+        ups_num = tracking_number.ups_num
+        context = {
+            'title': "Shipment # {0}".format(ship_id),
+            "ship_items": ship_items,
+            'message': "",
+            'ups_num': ups_num,
+            'status_url': "{0}:{1}/{2}".format(
+                UPS_HOST,
+                UPS_PORT,
+                ship_id)}
         return render(request, 'store/ship_id_endpoint.html', context)
     else:
-        context = {'message': "No such shipping id", "ship_items": []}
+        context = {'title': "Error", 'message': "No such shipping id"}
         return render(request, 'store/ship_id_endpoint.html', context)
- 
-    
+
 
 def get_signup(request):
     if request.method == 'POST':
@@ -165,6 +338,7 @@ def login(request):
 def logout(request):
     llogout(request)
     return render(request, 'store/loggedout.html', {})
+
 
 def getcart(request):
     """ Helper that returns a user's cart, creating if it doesn't exist."""

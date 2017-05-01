@@ -7,7 +7,8 @@
       {% csrf_token %}
       {{ form.non_field_errors }}
       <h1>Buy</h1>
-      Product Description etc etc: {{ product_id }}
+      Product ID {{ product_id }}</br>
+      Description {{ product.description }}</br>
       <div class="form-group">
         {{ form.qty.errors }}
         <label for="{{ form.qty.id_for_label }}">Quantity: </label>
