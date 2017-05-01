@@ -22,6 +22,7 @@ urlpatterns = [
     url(r'^buy/(?P<product_id>[0-9]+)/$', views.buy, name='buy'),
     url(r'^cart/$', views.cart, name='cart'),
     url(r'^checkout/$', views.checkout, name='checkout'),
+    url(r'^init/$', views.init, name='init'),
     url(r'^logout/$', views.logout, name='logout'),
     url(r'^orders/$', views.orders, name='orders'),
     url(r'^products/$', views.InventoryView.as_view(), name='products'),
