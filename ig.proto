@@ -1,0 +1,51 @@
+// Forwarding of AConnected ack from Amazon to UPS
+message AConnectedToSim {
+	required int64 worldid = 1;
+}
+
+// Forwarding of UConnected ack from UPS to Amazon
+message UConnectedToSim {
+	required int64 worldid = 1;
+}
+
+message pkgInfo {
+	required int64 packageid = 1;
+	required int32 delX = 2;
+	required int32 delY = 3;
+	optional int64 upsAcccount = 4;
+	optional string description = 5;
+}
+
+
+message sendTruck { // sent by Amazon to UPS at the same time Amazon sends APack to sim
+	required int32 whid = 1; // warehouse ID for UPS team to use in its UGoPickup message to sim
+	repeated pkgInfo packages = 2;
+	optional int32 whX = 3; // x-coordinates of the warehouse specified by whid, to help UPS choose nearest truck? In case UPS implementing that nicety
+	optional int32 whY = 4; // y-coordinates of the above warehouse
+}
+
+message truckArrived { // sent by UPS to Amazon
+	required int32 whid = 1;
+	required int32 truckid = 2;
+}
+
+message dispatchTruck { // sent by Amazon to UPS once sim sends 'loaded' notification to Amazon
+	required int32 truckid = 1; // corresponds to truckid above sent by UPS in truckArrived message - Amazon needs mapping of truckid to packageid (shipid)
+	repeated pkgInfo packages = 2; // needed since not all packages included in the sendTruck message may have been successfully loaded and fit on truck
+}
+
+message packageDelivered { // sent by UPS to Amazon as a forwarding of sim's 'delivered' notification to UPS
+	required int64 packageid = 1;
+}
+
+message UPStoAmazon {
+         repeated truckArrived truck_arrived= 1;
+         repeated packageDelivered delivered = 2;
+         repeated UConnectedToSim uconnected = 3;
+}
+
+message AmazontoUPS {
+        repeated sendTruck send_truck = 1;
+        repeated dispatchTruck dispatch_truck = 2;
+        repeated AConnectedToSim aconnected = 3;
+}
