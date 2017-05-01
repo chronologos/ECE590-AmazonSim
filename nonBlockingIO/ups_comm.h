@@ -20,20 +20,35 @@
 #include <thread>
 #include <set>
 #include <map>
+#include <deque>
+
+#include <thread>
+#include <mutex>
+
 
 #include "../utility.hpp"
 #include <google/protobuf/message_lite.h>
 #include "../amazon.pb.h"
 #include "../internalcom.pb.h"
 #include "../amazon.pb.h"
+#include "../ig.pb.h"
 
 #include "../dbHandler.h"
-#include "./ups_comm.h"
 
-#define SLEEPY_SERVER_PORT  23456
+#define UPS_COMM_PORT  34567
 #define LISTEN_BACKLOG 128
-#define SERVICE_QUOTA 10
 
-int sleepyListen(int sim_sock); 
+//int sleepyListen(int sim_sock); 
 
-std::thread * launchInternalServer(int sim_sock); 
+//std::thread * launchUPSMessenger(int * upsFD);
+std::thread * launchUPSMessenger(int sim_sock); 
+//std::thread * launchUPSMessenger(int ups_sock); 
+void addToUPSMsgQueue(AmazontoUPS msg);
+
+//int requestTruck(int whid, int * upsFD);
+int requestTruck(int whid);
+//int requestDispatch(int truckid, * upsFD); 
+int requestDispatch(int truckid); 
+
+//std::deque<AmazontoUPS> outgoing;
+//std::mutex queueMutex;

@@ -23,13 +23,17 @@
 //#include "./internalcom.pb.h"
 #include "nonBlockingIO/sleepyProtobuff.h"
 
+#include "nonBlockingIO/ups_comm.h"
+
+
 using namespace std;
 
 
 std::map<unsigned long, int> shipmentStatus; // a cache over the TrackingNumbers table in DB
 //std::map<int, unsigned long> socksToShipments; // map used by internal server mapping socket FDs to shipment numbers
 
-int SIM_SPEED = 120;
+
+//int UPS_FD = -1;
 
 int connectToSim() {  
   int status;
@@ -65,7 +69,7 @@ int connectToSim() {
   std::cout << "Successfully connected to sim on  socket " << socket_fd << "\n";
   int sim_sock = socket_fd;
   AConnect test;
-  test.set_worldid(1003);
+  test.set_worldid(WORLD_ID);
 
   // TO - DO : Make number and/or position of warehouses configurable with command-line args?
   /*
@@ -138,7 +142,7 @@ int handleArrived(ACommands * aCommands, AResponses * aResponses, int * result) 
 }
 
 // Increment FSM_STATE of shipids in TrackingNumbers table and send APutOnTruck message 
-int handleReady(ACommands * aCommands, AResponses * aResponses, int * result) { 
+int handleReady(ACommands * aCommands, AResponses * aResponses, int * result, int sim_sock) { 
   if (aResponses->ready_size() == 0) {
     std::cout << "This AResponse has no 'ready' messages\n";
     return 0;
@@ -147,12 +151,17 @@ int handleReady(ACommands * aCommands, AResponses * aResponses, int * result) {
   //int whnum; 
   //int truckid; TEMP - JUST 1 FOR NOW; SOON NEED TO TALK TO UPS TEAM FOR COORDINATION
   APutOnTruck load;
+  /*
   load.set_whnum(1); // TEMP
   //load.set_truckid(1); // TEMP
   load.set_truckid(0); // TEMP
+  */
+  std::vector<std::tuple<int, int, unsigned long>> loadInfo;
+  std::tuple<int, int, unsigned long> shipInfo;
   for (int num = 0; num < aResponses->ready_size(); num ++) {
     shipid = aResponses->ready(num);
     // increment FSM_STATE
+    /*
     if (incrementShipmentState(shipid) < 0) { // TEMP - MIGHT HAVE TO REPLACE BY CHECKING OF CURRENT STATE AND USING SET SHIPMENT STATE, depending on whether UPS truck has arrived
       std::cout << "Error incrementing FSM_STATE of shipid " << shipid << " from packing to loading\n"; // TO-DO : Error-Recovery follow-up action?
       *result = 0; // flag error
@@ -165,6 +174,29 @@ int handleReady(ACommands * aCommands, AResponses * aResponses, int * result) {
     load.set_shipid(shipid);
     APutOnTruck* newLoad = aCommands->add_load();
     *newLoad = load;
+  }
+  */
+    // Following method will change fsm state from WAITING_READY_TRUCK to WAITING_TRUCK and from WAITING_READY to WAITING_LOAD, returning a vector of info for packages that are now WAITING_LOAD
+    shipInfo = setReady(shipid);
+    if (std::get<1>(shipInfo) < 0) { // no truck at the warehouse of this shipment
+      std::cout << "Shipment " << shipid << " not ready for loading as truck has not arrived to its warehouse.\n";  
+    }   
+    else {
+      loadInfo.push_back(shipInfo);
+      std::cout << "Shipment " << shipid << " ready for loading as truck has already arrived to warehouse " << std::get<0>(shipInfo) << "\n";
+    }
+  }
+  if (loadInfo.size() > 0) {
+    std::cout << "Package " << shipid << " already had truck and is now packed, making load request to sim!\n";
+    if (!makeLoadRequest(loadInfo, sim_sock)) { 
+      std::cout << "Error making load request for ready packages upon truck arrival!\n";
+    }
+    else { // load request sent to sim successfully
+      std::cout << "Successfully made load request for ready packages upon truck arrival!\n";
+    }
+  }
+  else {
+    std::cout << "No packages ready for loading as trucks have not arrived to their warehouses!\n";
   }
   std::cout << "Done handling 'ready' responses from sim\n";
   return aResponses->ready_size();
@@ -180,12 +212,53 @@ int handleLoaded(ACommands * aCommands, AResponses * aResponses, int * result) {
   for (int num = 0; num < aResponses->loaded_size(); num ++) {
     shipid = aResponses->loaded(num);
     // increment FSM_STATE
-    if (incrementShipmentState(shipid) < 0) {
+    if (incrementShipmentState(shipid) < 0) { // increments from 4 (wait for load) to 5 (loaded)
       std::cout << "Error incrementing FSM_STATE of shipid " << shipid << " from loading to loaded\n"; // TO-DO : Error-Recovery follow-up action?
       *result = 0; // flag error
       continue; // TBD - Skip this shipment but continue processing other shiments?
     }
     // TO-DO : Construct custom Message for sending to UPS for commencing delivery? Need truckid, whid, shipid?
+    // Check if that warehouse is ready for loading
+    int mustSendTruck = 0;
+    int whid;
+    if ((whid = readyForDispatch(shipid, &mustSendTruck)) < 0) { // not ready to dispatch truck, nothing to do
+      std::cout << "Warehouse for shipment " << shipid << " not ready for truck dispatch, not doing anything now\n";
+      continue;
+    }
+    else {
+      std::cout << "Warehouse id for " << shipid << " is " << whid << ", it is ready for truck dispatch!\n";
+      int requested;
+      //if ((requested = requestDispatch(whid, &UPS_FD)) < 0) {
+      if ((requested = requestDispatch(whid)) < 0) {
+        std::cout << "Unable to dispatch truck despite warehouse being ready!\n";
+        continue;
+      }
+      else if (requested == 0) { // Logically not possible, only possible when requesting sendTruck
+        std::cout << "UPS not yet connected, dispatch queued?\n";
+      }
+      else {
+        std::cout << "Successfully dispatched";
+        // request for truck to be sent again if necessary
+        if (mustSendTruck) {
+          std::cout << "Warehouse has shipments waiting to be loaded, requesting another truck for this warehouse!\n";
+          int sendTruckRequest;
+          if ((sendTruckRequest = requestTruck(whid)) < 0) {
+            std::cout << "Unable to request truck to warehouse " << whid << "!\n";
+            continue;
+          }
+          else if (sendTruckRequest == 0) { // Also shouldn't be happening
+            std::cout << "UPS not yet connected, sendTruck queued?\n";
+            continue;
+          }
+          else {
+            std::cout << "Successfully requested another truck to be sent to warehouse " << whid << "!\n";
+          }
+        }
+        else {
+          std::cout << "Warehouse " << whid << " does not need another truck right now\n";
+        }
+      }
+    }
   }
   std::cout << "Done handling 'loaded' responses from sim\n";
   return aResponses->loaded_size();
@@ -203,7 +276,7 @@ int handleError(ACommands * aCommands, AResponses * aResponses, int * result) {
   }
 }
 // Decipher message, retrieve FSM state of shipment from DB, update FSM state, construct message to send, return next message to be written
-ACommands handleAResponses(AResponses * aResponses, int * result) { 
+ACommands handleAResponses(AResponses * aResponses, int * result, int sim_sock) { 
   ACommands aCommands;
   if (handleError(&aCommands, aResponses, result)) { // TO - DO : Ok to just abort here if error detected?
     std::cout << "Aborting response\n";
@@ -224,7 +297,7 @@ ACommands handleAResponses(AResponses * aResponses, int * result) {
   }
   int totalHandled = 0;
   totalHandled += handleArrived(&aCommands, aResponses, result);
-  totalHandled += handleReady(&aCommands, aResponses, result);
+  totalHandled += handleReady(&aCommands, aResponses, result, sim_sock);
   totalHandled += handleLoaded(&aCommands, aResponses, result);
 
   aCommands.set_simspeed(SIM_SPEED);
@@ -236,9 +309,39 @@ ACommands handleAResponses(AResponses * aResponses, int * result) {
   return aCommands;
 }
 
+bool makeLoadRequest(std::vector<std::tuple<int, int, unsigned long>> loadInfo, int sim_sock) {
+  if (loadInfo.size() == 0) return true;
+  ACommands aCommand;
+  APutOnTruck aPutOnTruck;
+  APutOnTruck* holder;
+  int whnum;
+  int truckid;
+  unsigned long shipid;
+  std::tuple<int, int, unsigned long> info;
+  // iterate through, make an APutOnTruck message for each
+  for (std::vector<std::tuple<int, int, unsigned long>>::iterator it = loadInfo.begin(); it < loadInfo.end(); it ++) {
+    info = *it;
+    whnum = std::get<0>(info);
+    truckid = std::get<1>(info);
+    shipid = std::get<2>(info);
+    aPutOnTruck.set_whnum(whnum);
+    aPutOnTruck.set_truckid(truckid);
+    aPutOnTruck.set_shipid(shipid);
+    holder = aCommand.add_load();
+    *holder = aPutOnTruck;
+  }
+  if (!sendMsgToSocket(aCommand, sim_sock)) {
+    std::cout << "Unable to send request to sim for loading of packages upon arrival of truck!\n";
+    return false;
+  }
+  std::cout << "Successfully sent request to sim for loading of packages upon arrival of truck!\n";
+  return true; // TEMP
+}
+
+
 // Select loop of main server
 void talkToSim(int sim_sock) { // Already connected to the socket by now
-  struct fd_set master_set, read_set, write_set;
+  struct fd_set master_set, read_set;//, write_set;
   int available;
   //struct timeval timeout; // Use no timeout?
   FD_ZERO(&master_set);
@@ -246,8 +349,10 @@ void talkToSim(int sim_sock) { // Already connected to the socket by now
   std::deque<ACommands> outgoing;
   while (1) { // TO-DO : Exit Condition? Signal Handler?
     memcpy(&read_set, &master_set, sizeof(read_set));
-    memcpy(&write_set, &master_set, sizeof(write_set));
-    available = select(sim_sock + 1, &read_set, &write_set, NULL, NULL);
+    //memcpy(&write_set, &master_set, sizeof(write_set));
+    //available = select(sim_sock + 1, &read_set, &write_set, NULL, NULL);
+    available = select(sim_sock + 1, &read_set, NULL, NULL, NULL);
+    std::cout << "Awoke from slumber!\n";
     if (available > 0) {
       //std::cout << "Data available on non-blocking sim socket!\n";
       if (FD_ISSET(sim_sock, &read_set)) {
@@ -260,27 +365,22 @@ void talkToSim(int sim_sock) { // Already connected to the socket by now
         }
         else {
           int success = 1;
-          ACommands nextCommand = handleAResponses(&aResponses, &success);
+          ACommands nextCommand = handleAResponses(&aResponses, &success, sim_sock);
           if (!success) {
             std::cout << "No follow-up command generated for this sim response!\n";
           }
           else {
             std::cout << "Successfully processed sim response!\n";
             //outgoing.emplace(nextCommand);
-            outgoing.push_back(nextCommand);
+            
+            //outgoing.push_back(nextCommand);
+            if (!sendMsgToSocket(nextCommand, sim_sock)) {
+              std::cout << "ERROR sending ACommand to sim!\n";
+            }
+            else {
+            std::cout << "Successfully sent ACommand!\n";
+            }
           }
-        }
-      }
-      if (!outgoing.empty() && FD_ISSET(sim_sock, &write_set)) { // Need to write and socket is ready to receive write, so write
-        std::cout << "About to send command to sim\n";
-        ACommands nextCommand = outgoing.front(); // fields already populated by handleAResponses
-        outgoing.pop_front(); 
-        //if (!sendMsgToSocket(*((google::protobuf::Message*)&nextCommand), sim_sock)) {
-        if (!sendMsgToSocket(nextCommand, sim_sock)) {
-          std::cout << "ERROR sending ACommand to sim!\n";
-        }
-        else {
-          std::cout << "Successfully sent ACommand!\n";
         }
       }
     }
@@ -288,18 +388,6 @@ void talkToSim(int sim_sock) { // Already connected to the socket by now
   close(sim_sock);
 }
 
-/*
-// Select loop of UPS thread
-void talkToUPS(int ups_sock) {
-
-}
-
-std::thread * launchUPSMessenger() {
-  std::thread
-
-
-}
-*/
 
 int main(int argc, char* argv[]) {
   int sim_sock;
@@ -310,16 +398,21 @@ int main(int argc, char* argv[]) {
   std::cout << "About to launch internal comm server\n";
   std::thread * internalServer = launchInternalServer(sim_sock);
   std::cout << "Successfully launched internal server\n";
-  /*
+  
+  
   std::cout << "About to launch UPS comm server\n";
-  std::thread * upsMessenger = launchUPSMessenger();
-  */
+  //std::thread * upsMessenger = launchUPSMessenger(&UPS_FD); // will be set to valid fd once connection received from UPS
+  std::thread * upsMessenger = launchUPSMessenger(sim_sock); // will be set to valid fd once connection received from UPS
+  std::cout << "Successfully launched UPS messenger!\n";
+
   std::cout << "Main thread about to enter select loop on sim socket\n";
   talkToSim(sim_sock);
   
   std::cout << "Main thread waiting on internal server to be done\n";
   (*internalServer).join();
+  (*upsMessenger).join();
   delete internalServer;
+  delete upsMessenger;
   //close(sim_sock);
   std::cout << "Main thread exiting\n";
   return 0;

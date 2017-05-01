@@ -123,3 +123,7 @@ template bool sendMsgToSocket<ACommands>(ACommands const&, int);
 template bool recvMsgFromSocket<Order>(Order&, int);
 template bool sendMsgToSocket<Order>(Order const&, int);
 template bool recvMsgFromSocket<OrderReply>(OrderReply &, int);
+template bool sendMsgToSocket<AmazontoUPS>(AmazontoUPS const&, int);
+template bool recvMsgFromSocket<UPStoAmazon>(UPStoAmazon&, int);
+template bool sendMsgToSocket<UPStoAmazon>(UPStoAmazon const&, int);
+template bool recvMsgFromSocket<AmazontoUPS>(AmazontoUPS&, int);
