@@ -6,11 +6,13 @@ int BUY_PACK_SIM_SPEED = 120;
 int nextWarehouse = 0;
 
 int getNextWarehouse() {
+   int currentWarehouse = nextWarehouse;
    nextWarehouse = (nextWarehouse + 1) % NUM_WAREHOUSES;
-   return nextWarehouse;
+   //return nextWarehouse;
+   return currentWarehouse;
 }
 
-int purchaseMore(unsigned long shipid, int sim_sock) {
+int purchaseMore(unsigned long shipid, int delX, int delY, int sim_sock) {
    // Initialize vector of AProduct messages
    std::vector<AProduct> productMsgs;
    // Retrieve vector<tuple> of all products associated with shipid from DB
@@ -35,7 +37,8 @@ int purchaseMore(unsigned long shipid, int sim_sock) {
    aPack.set_shipid(shipid);
    // Initialize APurchaseMore message
    APurchaseMore purchaseMsg;
-   purchaseMsg.set_whnum(1); // TBD
+   //purchaseMsg.set_whnum(1); // TBD
+   purchaseMsg.set_whnum(whnum);
    // Iterate through vector, for each product item
    for (std::vector<AProduct>::iterator it = productMsgs.begin(); it < productMsgs.end(); it ++) {
       // add_APurchase on the APurchaseMore object
@@ -73,7 +76,8 @@ int purchaseMore(unsigned long shipid, int sim_sock) {
       */
      // TO - DO : Send UPS a command to send a truck over to the coordinates of the warehouse
       int truckRequested;
-      if ((truckRequested = requestTruck(whnum)) < 0) {
+      //if ((truckRequested = requestTruck(whnum)) < 0) {
+      if ((truckRequested = requestTruck(whnum, shipid, delX, delY)) < 0) {
          std::cout << "Error requesting truck!\n";
          return -1;
       }
@@ -226,7 +230,10 @@ int sleepyListen(int sim_sock) {
                      // push to set for writing
                      mustWrite.emplace(i);
                      // Purchase More - NOTE : Do on critical path? Or later?
-                     if (purchaseMore(shipid, sim_sock)) {
+                     int delX = order.delx();
+                     int delY = order.dely();
+                     //if (purchaseMore(shipid, sim_sock)) {
+                     if (purchaseMore(shipid, delX, delY, sim_sock)) {
                         std::cout << "Error purchasing more of products consumed by shipid " << shipid << "\n";
                      }
                      else {

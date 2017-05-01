@@ -1,11 +1,10 @@
 message Order {
-//  required int64 djangoid = 1;
-//  repeated AProduct products = 2;
   required int64 shipid = 1;
+  required int32 delX = 2;
+  required int32 delY = 3; 
 }
 
 message OrderReply {
-//  required int64 djangoid = 1;
   required int64 shipid = 1;
   optional string error = 2;
 }
