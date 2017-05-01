@@ -11,10 +11,10 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth.decorators import login_required
 from .forms import *
 
-from google.protobuf.internal.decoder import _DecodeVarint32
-from google.protobuf.internal.encoder import _EncodeVarint as varintEncoder
-import internalcom_pb2
-import amazon_pb2
+# from google.protobuf.internal.decoder import _DecodeVarint32
+# from google.protobuf.internal.encoder import _EncodeVarint as varintEncoder
+# import internalcom_pb2
+# import amazon_pb2
 import socket
 import struct
 
@@ -28,8 +28,8 @@ CPP_HOST = "10.190.67.184"
 # CPP_PORT = 12345
 CPP_PORT = 23456
 SOCKET_TIMEOUT = 0.5
-SIM_HOST = "10.236.48.19"
-# SIM_HOST = "localhost"
+# SIM_HOST = "10.236.48.19"
+SIM_HOST = "localhost"
 SIM_PORT = 23456
 WORLD = 1007
 N_WAREHOUSES = 2
@@ -39,62 +39,88 @@ PRODUCTS = {"papaya":(10000,10,"Delicious fruit!"), "tomato":(10000,20,"Good for
 # Create your views here.
 
 def init(request):
-    # populate database for sim and c++/py
-    sim_connect = amazon_pb2.AConnect()
-    sim_connect.worldid = WORLD
-    sim_connect_bytes = sim_connect.SerializeToString()
+    warehouses = []
+    for w in range(N_WAREHOUSES):
+       w_local = Warehouse(x_coord=0,y_coord=0,truck_id=-1)
+       w_local.save() 
+       warehouses.append(w_local)
 
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.settimeout(SOCKET_TIMEOUT)
-            bytes_size = len(sim_connect_bytes)
-            print("size is {0}".format(bytes_size))
-            s.connect((SIM_HOST, SIM_PORT))
-            varintEncoder(s.send, bytes_size)
-            s.sendall(sim_connect_bytes)
-    
-            warehouses = []
-            for w in range(N_WAREHOUSES):
-               w_local = Warehouse(x_coord=0,y_coord=0,truck_id=-1)
-               w_local.save() 
-               warehouses.append(w_local)
-
-            command_pb = amazon_pb2.ACommands()
-            command_pb.simspeed = 5
-            command_pb.disconnect = True
-            for w in warehouses:
-                purchase_pb = command_pb.buy.add()
-                # purchase_pb = amazon_pb2.APurchaseMore()
-                purchase_pb.whnum = w.id
-                for name,tup in PRODUCTS.items():
-                    count, price, description = tup
-                    p_local = Product(name=name, description=description, rating=0, num_ratings=0)
-                    p_local.save()
-                    i_local = Inventory(product=p_local, count=count, price=price, warehouse=w)
-                    i_local.save()
-                    thing = purchase_pb.things.add()
-                    thing.id = p_local.id
-                    thing.description = description
-                    thing.count = count
-            command_pb_bytes = command_pb.SerializeToString()
-            print(command_pb_bytes) 
-            bytes_size = len(command_pb_bytes)
-            print("size is {0}".format(bytes_size))
-            varintEncoder(s.send, bytes_size)
-            s.sendall(command_pb_bytes)
-            a = s.recv(1024) # handle this
-            print(a)
-            s.close()
-
-    except socket.timeout:
-        return render(request, 'store/cart.html',
-                      {"message": "backend error: socket timed out/conn refused."})
-    except ConnectionRefusedError:
-        return render(request, 'store/cart.html',
-                      {"message": "backend error: socket timed out/conn refused."})
+    prod_map = {}
+    for name,tup in PRODUCTS.items():
+        count, price, description = tup
+        p_local = Product(name=name, description=description, rating=0, num_ratings=0)
+        p_local.save()
+        prod_map[name] = p_local
+    for w in warehouses:
+        for name,tup in PRODUCTS.items():
+            count, price, description = tup
+            i_local = Inventory(product=prod_map[name], count=count, price=price, warehouse=w)
+            i_local.save()
     print("done")
     return render(request, 'store/cart.html',
-                  {"message": "init succeeded."})
+              {"message": "init succeeded."})
+
+    # populate database for sim and c++/py
+    # sim_connect = amazon_pb2.AConnect()
+    # sim_connect.worldid = WORLD
+    # sim_connect_bytes = sim_connect.SerializeToString()
+
+    # try:
+        # with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            # s.settimeout(SOCKET_TIMEOUT)
+            # bytes_size = len(sim_connect_bytes)
+            # print("size is {0}".format(bytes_size))
+            # s.connect((SIM_HOST, SIM_PORT))
+            # varintEncoder(s.send, bytes_size)
+            # s.sendall(sim_connect_bytes)
+            # a = s.recv(1024) # handle this
+
+            # warehouses = []
+            # for w in range(N_WAREHOUSES):
+               # w_local = Warehouse(x_coord=0,y_coord=0,truck_id=-1)
+               # w_local.save() 
+               # warehouses.append(w_local)
+
+            # command_pb = amazon_pb2.ACommands()
+            # command_pb.simspeed = 5
+            # command_pb.disconnect = True
+            # prod_map = {}
+            # for name,tup in PRODUCTS.items():
+                # count, price, description = tup
+                # p_local = Product(name=name, description=description, rating=0, num_ratings=0)
+                # p_local.save()
+                # prod_map[name] = p_local
+            # for w in warehouses:
+                # purchase_pb = command_pb.buy.add()
+                # # purchase_pb = amazon_pb2.APurchaseMore()
+                # purchase_pb.whnum = w.id
+                # for name,tup in PRODUCTS.items():
+                    # count, price, description = tup
+                    # i_local = Inventory(product=prod_map[name], count=count, price=price, warehouse=w)
+                    # i_local.save()
+                    # thing = purchase_pb.things.add()
+                    # thing.id = p_local.id
+                    # thing.description = description
+                    # thing.count = count
+            # command_pb_bytes = command_pb.SerializeToString()
+            # print(command_pb_bytes) 
+            # bytes_size = len(command_pb_bytes)
+            # print("size is {0}".format(bytes_size))
+            # varintEncoder(s.send, bytes_size)
+            # s.sendall(command_pb_bytes)
+            # a = s.recv(1024) # handle this
+            # print(a)
+            # s.close()
+
+    # except socket.timeout:
+        # return render(request, 'store/cart.html',
+                      # {"message": "backend error: socket timed out/conn refused."})
+    # except ConnectionRefusedError:
+        # return render(request, 'store/cart.html',
+                      # {"message": "backend error: socket timed out/conn refused."})
+    # print("done")
+    # return render(request, 'store/cart.html',
+                  # {"message": "init succeeded."})
 
 def rate(request):
     if request.POST:
@@ -293,7 +319,7 @@ def checkout(request):
             if not Inventory.objects.filter(warehouse=warehouse_id).filter(
                     product=item.product).exists():
                 return render(request, 'store/checkout.html',
-                              {"message": "product out of stock"})
+                              {"message": "product(s) out of stock"})
 
             inventory_item = Inventory.objects.filter(
                 warehouse=warehouse_id).get(
