@@ -3,6 +3,12 @@
 
 int BUY_PACK_SIM_SPEED = 120;
 
+int nextWarehouse = 0;
+
+int getNextWarehouse() {
+   nextWarehouse = (nextWarehouse + 1) % NUM_WAREHOUSES;
+   return nextWarehouse;
+}
 
 int purchaseMore(unsigned long shipid, int sim_sock) {
    // Initialize vector of AProduct messages
@@ -23,7 +29,9 @@ int purchaseMore(unsigned long shipid, int sim_sock) {
    ACommands aCommands;
    // Initialize APack message
    APack aPack;
-   aPack.set_whnum(1); // TEMP
+   int whnum = getNextWarehouse();
+   //aPack.set_whnum(1); // TEMP
+   aPack.set_whnum(whnum);
    aPack.set_shipid(shipid);
    // Initialize APurchaseMore message
    APurchaseMore purchaseMsg;
@@ -55,13 +63,26 @@ int purchaseMore(unsigned long shipid, int sim_sock) {
    else {
       //std::cout << "Successfully restocked for shipment " << shipid << "!\n";
       std::cout << "Successfully sent APurchaseMore and APack commands for shipid " << shipid << "!\n";
+      /* DONE BY DJANGO NOW
       // INSERT INTO TrackingNumbers table in DB
       if (initShipmentState(shipid)) { 
          std::cout << "Unable to enter shipment into database!\n";
          return -1;
-      }
+      }      
       std::cout << "Successfully entered shipment into TrackingNumbers table!\n";
-     // TO - DO : Send UPS a command to send a truck over to the coordinates of the warehouse?
+      */
+     // TO - DO : Send UPS a command to send a truck over to the coordinates of the warehouse
+      int truckRequested;
+      if ((truckRequested = requestTruck(whnum)) < 0) {
+         std::cout << "Error requesting truck!\n";
+         return -1;
+      }
+      else if (truckRequested == 0) {
+         std::cout << "UPS not yet connected to Amazon, sendTruck request queued for later\n";
+      }
+      else {
+         std::cout << "Truck Successfully requested for warehouse " << whnum << " for shipment " << shipid << "\n";
+      }
       return 0;
    }
    // return 0 if success, -1 if failure
@@ -216,10 +237,13 @@ int sleepyListen(int sim_sock) {
    			}
    			if (mustWrite.find(i) != mustWrite.end() && FD_ISSET(i, &writing_set)) {
    				// Need to write and ready for writing
-   				desc_ready --;
+   				
+               desc_ready --;
    				std::cout << "Socket " << i << " is ready for writing\n";
                // Retrieve shipid for this connection
                std::map<int, unsigned long>::iterator it = shipids.find(i);
+
+               // Message-Specific Logic
                std::string errorStr;
                unsigned long shipid;
                if (it == shipids.end()) {
@@ -245,7 +269,7 @@ int sleepyListen(int sim_sock) {
                else {
                   std::cout << "Successfully wrote orderReply to client\n";
                }
-
+               
       			close(i);
    				FD_CLR(i, &master_set);
    				mustWrite.erase(i);

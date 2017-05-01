@@ -11,9 +11,9 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth.decorators import login_required
 from .forms import *
 
-from google.protobuf.internal.decoder import _DecodeVarint32
-from google.protobuf.internal.encoder import _EncodeVarint as varintEncoder
-import internalcom_pb2
+# from google.protobuf.internal.decoder import _DecodeVarint32
+# from google.protobuf.internal.encoder import _EncodeVarint as varintEncoder
+#import internalcom_pb2
 import socket
 import struct
 
@@ -95,9 +95,9 @@ def checkout(request):
         bytes_size = len(order_bytes)
         print("size is {0}".format(bytes_size))
         s.connect((CPP_HOST, CPP_PORT))
-        varintEncoder(s.send, bytes_size)  
+        # varintEncoder(s.send, bytes_size)  
         # s.sendall(struct.pack("!q", bytes_size))
-        s.sendall(order_bytes)
+        # s.sendall(order_bytes)
         # minus from Inventory
         # make shipment item
         # return tracking number

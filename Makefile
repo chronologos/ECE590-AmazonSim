@@ -3,7 +3,7 @@ CFLAGS=-std=c++14 -g
 EXTRAFLAGS=`pkg-config --cflags --libs protobuf`
 
 #all: protobuf_test protobuf_test_read client2
-all: amazon_server internalClientTest
+all: amazon_server internalClientTest 
 
 protobuf_test: protobuf_test.cpp addressbook.pb.cc
 	{ \
@@ -34,7 +34,10 @@ proto:
 	}
 
 amazon_server:
-	$(CC) $(CFLAGS) -Wall -pedantic -L/usr/local/lib -I/usr/local/include -o amazon_server utility.cpp amazon_server.cpp amazon.pb.cc internalcom.pb.cc  nonBlockingIO/sleepyProtobuff.cc dbHandler.cc -lpqxx -lpq $(EXTRAFLAGS)
+	$(CC) $(CFLAGS) -Wall -pedantic -L/usr/local/lib -I/usr/local/include -o amazon_server utility.cpp amazon_server.cpp amazon.pb.cc internalcom.pb.cc ig.pb.cc nonBlockingIO/sleepyProtobuff.cc nonBlockingIO/ups_comm.cc dbHandler.cc -lpqxx -lpq $(EXTRAFLAGS)
 
 internalClientTest:
-	$(CC) $(CFLAGS) -Wall -pedantic -L/usr/local/lib -I/usr/local/include -o internalClientTest utility.cpp nonBlockingIO/internalClientTest.cc internalcom.pb.cc  $(EXTRAFLAGS)
+	$(CC) $(CFLAGS) -Wall -pedantic -L/usr/local/lib -I/usr/local/include -o internalClientTest utility.cpp nonBlockingIO/internalClientTest.cc internalcom.pb.cc ig.pb.cc  $(EXTRAFLAGS)
+
+#ups_messenger:
+#	$(CC) $(CFLAGS) -Wall -pedantic -L/usr/local/lib -I/usr/local/include -o ups_messenger utility.cpp nonBlockingIO/ups_comm.cc ig.pb.cc dbHandler.cc -lpqxx -lpq $(EXTRAFLAGS)
