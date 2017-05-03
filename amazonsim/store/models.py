@@ -40,7 +40,7 @@ class TrackingNumber(models.Model):
     x_address = models.IntegerField()
     y_address = models.IntegerField()
     fsm_state = models.IntegerField()
-    ups_num = models.IntegerField(null=True)
+    ups_num = models.BigIntegerField(null=True)
     # 0 purchased and not arrived
     # 1 asked to pack and asked for truck
     # 2 packed but no truck
