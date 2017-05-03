@@ -23,3 +23,5 @@ int readyForDispatch(unsigned long shipid, int * mustSendTruck); // return whid 
 int setDispatched(std::vector<unsigned long> dispatchedShips);
 std::vector<std::tuple<int, int, unsigned long>> setTruckForWarehouse(int whid, int truckid);
 std::tuple<int, int, unsigned long> setReady(unsigned long shipid);
+
+unsigned long getUPSAccount(unsigned long shipid);

@@ -33,7 +33,7 @@ SIM_HOST = "10.236.48.28"
 #SIM_HOST = "localhost"
 SIM_PORT = 23456
 WORLD = 1001
-N_WAREHOUSES = 2
+N_WAREHOUSES = 10
 
 # ad hoc data structure containing map of product_name:(count,price,description)
 PRODUCTS = {"papaya":(10000,10,"Delicious fruit!"), "tomato":(10000,20,"Good for soup."), "aop":(10000,5,"essential reading?")}

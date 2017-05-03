@@ -221,6 +221,7 @@ std::tuple<int, std::vector<std::tuple<unsigned long, int, int>>> getLoadedShipm
         std::cout << "Error! unable to cast shipid to unsigned long!\n";
         continue; // Fail silently on this shipment?
       }
+      std::cout << "Extracted and cast shipid to be " << shipid << "\n";
       if (!r[shipment]["x_address"].to(delX)) {
         std::cout << "Error! Unable to cast delivery x-coordinate to int!\n";
         continue;
@@ -348,6 +349,7 @@ std::vector<std::tuple<int, int, unsigned long>> setTruckForWarehouse(int whid, 
           std::cout << "Error casting id of package to unsigned long!\n";
           continue;
         }
+        std::cout << "Extracted and cast shipid to be " << shipid << "\n";
         std::cout << "Shipid for package about to be packed is " << shipid << "\n";
         loadInfo.push_back(std::tuple<int, int, unsigned long>(whid, truckid, shipid));
       }
@@ -449,4 +451,22 @@ std::tuple<int, int, unsigned long> setReady(unsigned long shipid) {
   std::cout << "Successfully extracted information for shipment " << shipid << " which is ready for loading!\n";
   txn.commit();
   return shipInfo;
+}
+
+unsigned long getUPSAccount(unsigned long shipid) {
+   pqxx::connection c{"dbname=amazon_db user=postgres"};
+   pqxx::work txn{c};
+   std::string queryString("SELECT ups_num FROM store_trackingnumber WHERE id=" + std::to_string(shipid));
+   pqxx::result r = txn.exec(queryString);
+   if (r.size() == 0) {
+    std::cout << "Error! Missing package " << shipid << "\n";
+    return -1;
+   }
+   unsigned long upsAcc;
+   if (!r[0]["ups_num"].to(upsAcc)) {
+    std::cout << "Error! Unable to cast ups acccount to unsigned long!\n";
+    return -1;
+   }
+   std::cout << "Extracted and cast UPSAccount to be " << upsAcc << "\n";
+   return upsAcc;
 }

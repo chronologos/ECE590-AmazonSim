@@ -245,7 +245,7 @@ int handleLoaded(ACommands * aCommands, AResponses * aResponses, int * result) {
         if (mustSendTruck) {
           std::cout << "Warehouse has shipments waiting to be loaded, requesting another truck for this warehouse!\n";
           int sendTruckRequest;
-          if ((sendTruckRequest = requestTruck(whid, -1, -1, -1)) < 0) {
+          if ((sendTruckRequest = requestTruck(whid, 0, -1, -1, false)) < 0) {
             std::cout << "Unable to request truck to warehouse " << whid << "!\n";
             continue;
           }

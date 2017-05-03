@@ -12,7 +12,7 @@ message pkgInfo {
 	required int64 packageid = 1;
 	required int32 delX = 2;
 	required int32 delY = 3;
-	optional int64 upsAcccount = 4;
+	optional int64 upsAccount = 4;
 	optional string description = 5;
 }
 

@@ -5,17 +5,16 @@ int BUY_PACK_SIM_SPEED = 40000000;
 
 int nextWarehouse = 0;
 
+/*
 int getNextWarehouse() {
  /*
    int currentWarehouse = nextWarehouse;
    nextWarehouse = (nextWarehouse + 1) % NUM_WAREHOUSES;
-   //return nextWarehouse;
    return currentWarehouse;
-*/
-   return 1;
 }
+*/
 
-int purchaseMore(unsigned long shipid, int delX, int delY, int sim_sock) {
+int purchaseMore(unsigned long shipid, int whid, int delX, int delY, int sim_sock) {
    // Initialize vector of AProduct messages
    std::vector<AProduct> productMsgs;
    // Retrieve vector<tuple> of all products associated with shipid from DB
@@ -34,14 +33,15 @@ int purchaseMore(unsigned long shipid, int delX, int delY, int sim_sock) {
    ACommands aCommands;
    // Initialize APack message
    APack aPack;
-   int whnum = getNextWarehouse();
-   //aPack.set_whnum(1); // TEMP
-   aPack.set_whnum(whnum);
+
+   //int whnum = getNextWarehouse();
+   // RETRIEVE FROM PROTOBUFF INSTEAD  
+   aPack.set_whnum(whid);
    aPack.set_shipid(shipid);
    // Initialize APurchaseMore message
    APurchaseMore purchaseMsg;
    //purchaseMsg.set_whnum(1); // TBD
-   purchaseMsg.set_whnum(whnum);
+   purchaseMsg.set_whnum(whid);
    // Iterate through vector, for each product item
    for (std::vector<AProduct>::iterator it = productMsgs.begin(); it < productMsgs.end(); it ++) {
       // add_APurchase on the APurchaseMore object
@@ -80,7 +80,7 @@ int purchaseMore(unsigned long shipid, int delX, int delY, int sim_sock) {
      // TO - DO : Send UPS a command to send a truck over to the coordinates of the warehouse
       int truckRequested;
       //if ((truckRequested = requestTruck(whnum)) < 0) {
-      if ((truckRequested = requestTruck(whnum, shipid, delX, delY)) < 0) {
+      if ((truckRequested = requestTruck(whid, shipid, delX, delY, true)) < 0) {
          std::cout << "Error requesting truck!\n";
          return -1;
       }
@@ -88,7 +88,7 @@ int purchaseMore(unsigned long shipid, int delX, int delY, int sim_sock) {
          std::cout << "UPS not yet connected to Amazon, sendTruck request queued for later\n";
       }
       else {
-         std::cout << "Truck Successfully requested for warehouse " << whnum << " for shipment " << shipid << "\n";
+         std::cout << "Truck Successfully requested for warehouse " << whid << " for shipment " << shipid << "\n";
       }
       return 0;
    }
@@ -235,8 +235,9 @@ int sleepyListen(int sim_sock) {
                      // Purchase More - NOTE : Do on critical path? Or later?
                      int delX = order.delx();
                      int delY = order.dely();
+                     int whid = order.whid();
                      //if (purchaseMore(shipid, sim_sock)) {
-                     if (purchaseMore(shipid, delX, delY, sim_sock)) {
+                     if (purchaseMore(shipid, whid, delX, delY, sim_sock)) {
                         std::cout << "Error purchasing more of products consumed by shipid " << shipid << "\n";
                      }
                      else {

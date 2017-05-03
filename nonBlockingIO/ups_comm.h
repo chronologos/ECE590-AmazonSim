@@ -44,7 +44,7 @@
 std::thread * launchUPSMessenger(int sim_sock); 
 //std::thread * launchUPSMessenger(int ups_sock); 
 void addToUPSMsgQueue(AmazontoUPS msg);
-int requestTruck(int whnum, unsigned long shipid, int delX, int delY);
+int requestTruck(int whnum, unsigned long shipid, int delX, int delY, bool hasPackages);
 //int requestTruck(int whid, int * upsFD);
 //int requestTruck(int whid);
 //int requestDispatch(int truckid, * upsFD); 

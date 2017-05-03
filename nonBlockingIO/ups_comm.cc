@@ -28,19 +28,34 @@ int pollFromUPSMsgQueue(AmazontoUPS* holder) {
 // Called whenever shipments are being packed at a warehouse with no truck in that warehouse
 //int requestTruck(int whid, int * upsFD) {
 //int requestTruck(int whid) {
-int requestTruck(int whid, unsigned long shipid, int delX, int delY) {
+int requestTruck(int whid, unsigned long shipid, int delX, int delY, bool hasPackages) {
 	// construct message
 	AmazontoUPS out;
 	sendTruck truckRequest;
 	sendTruck * holder = out.add_send_truck();
 	// Get truck id of truck in warehouse, if -1 then need to request truck
-	if (shipid >= 0) {
+	//std::cout << ""; 
+	//if (shipid >= 0) {
+	if (hasPackages) {
+		//std::cout << "Shipid is valid; it is " << shipid << "\n";
+		std::cout << "Adding package info!";
 		pkgInfo info;
 		info.set_packageid(shipid);
 		info.set_delx(delX);
 		info.set_dely(delY);
 		pkgInfo * infoHolder = truckRequest.add_packages();
+		unsigned long upsAcc = getUPSAccount(shipid);
+		if (upsAcc < 0) {
+			std::cout << "UPS Account missing, not sending upsAccount to UPS";
+		}
+		else {
+			info.set_upsaccount(upsAcc);
+			std::cout << "Set UPSAccount to be " << upsAcc << "\n";
+		}
 		*infoHolder = info;
+	}
+	else {
+		std::cout << "IGNORING INVALID PLACEHOLDER PKG INFO\n";
 	}
 
 
