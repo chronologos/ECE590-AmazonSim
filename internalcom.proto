@@ -1,7 +1,8 @@
 message Order {
   required int64 shipid = 1;
-  required int32 delX = 2;
-  required int32 delY = 3; 
+  required int32 whid = 2;
+  required int32 delX = 3;
+  required int32 delY = 4; 
 }
 
 message OrderReply {
