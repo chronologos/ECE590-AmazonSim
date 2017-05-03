@@ -61,6 +61,7 @@ class ShipmentItem(models.Model):
         TrackingNumber, on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     count = models.IntegerField()
+    description = models.TextField()
 
     def __str__(self):
         return "tracking number: {0}\n product: {1} count: {2}".format(

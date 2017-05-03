@@ -4,7 +4,7 @@ std::vector<std::tuple<unsigned long, std::string, int>> getShipmentProducts(uns
   //pqxx::connection c{"dbname=amazonsim user=radithya"};
   pqxx::connection c{"dbname=amazon_db user=postgres"};
   pqxx::work txn{c};
-  std::string queryString("SELECT * FROM store_shipmentitem WHERE tracking_number_id = " + std::to_string(shipid));
+  std::string queryString("SELECT * FROM store_shipmentitem WHERE tracking_number_id =" + std::to_string(shipid));
   //std::cout << "Query String: " << queryString << "\n";
   pqxx::result r = txn.exec(queryString);
   
@@ -120,20 +120,22 @@ int incrementShipmentState(unsigned long shipid) {
 }
 
 // Retrieve current inventory of a product
-int getInventory(unsigned long productid) {
+int getInventory(unsigned long productid, int whid) {
 	//pqxx::connection c{"dbname=amazonsim user=radithya"};
     pqxx::connection c{"dbname=amazon_db user=postgres"};
   	pqxx::work txn{c};
-  	std::string queryString("SELECT count FROM store_inventory WHERE product_id=" + std::to_string(productid));
+  	std::string queryString("SELECT count FROM store_inventory WHERE product_id=" + std::to_string(productid) + " AND warehouse_id=" + std::to_string(whid));
   	pqxx::result r = txn.exec(queryString);
   	if (r.size() == 0) {
   		std::cout << "Product with id " << productid << " not found in inventory!\n";
   		return -1;
   	}
-  	if (r.size() > 1) { // Each productid should appear only once in the table
-  		std::cout << "ERROR! Product with id " << productid << " appears multiple times in inventory!\n";
+  	
+    if (r.size() > 1) { // Each productid should appear only once in the table
+  		//std::cout << "ERROR! Product with id " << productid << " appears multiple times in inventory!\n";
   		return -1;
   	}
+    
   	int count;
   	if (r[0]["count"].is_null() || !r[0]["count"].to(count)) {
   		std::cout << "Error getting inventory of product with id " << productid << "; unable to get count as integer\n";
@@ -144,8 +146,8 @@ int getInventory(unsigned long productid) {
 
 
 // Add amount toAdd to current amount of item in DB, update DB, return updated amount
-int updateInventory(unsigned long productid, int toAdd) {
-  int oldAmount = getInventory(productid);
+int updateInventory(unsigned long productid, int toAdd, int whid) {
+  int oldAmount = getInventory(productid, whid);
   if (oldAmount < 0) {
     std::cout << "Missing item with productid " << productid << " detected while trying to update inventory; skipping\n"; 
     return -1;
@@ -154,7 +156,8 @@ int updateInventory(unsigned long productid, int toAdd) {
   //pqxx::connection c{"dbname=amazonsim user=radithya"};
   pqxx::connection c{"dbname=amazon_db user=postgres"};
   pqxx::work txn{c};
-  std::string queryString("INSERT INTO store_inventory (product_id, count) VALUES ("  + std::to_string(productid) + ", " + std::to_string(newAmount) + ")");
+  //std::string queryString("INSERT INTO store_inventory (product_id, count) VALUES ("  + std::to_string(productid) + ", " + std::to_string(newAmount) + ") WHERE warehouse_id=" + std::to_string(whid));
+  std::string queryString("UPDATE store_inventory\nSET count=" + std::to_string(newAmount) + "\nWHERE warehouse_id=" + std::to_string(whid) + " AND product_id=" + std::to_string(productid));
   pqxx::result r = txn.exec(queryString);
   txn.commit();
   std::cout << "Updated amount of product_id " << productid << " to " << newAmount << "\n";
@@ -184,7 +187,7 @@ int getTruckIDForWarehouse(int whid) {
 pqxx::result getLoadedShipmentsForWarehouse(int whid) {
   pqxx::connection c{"dbname=amazon_db user=postgres"};
   pqxx::work txn{c};
-  std::string queryString("SELECT (id, x_address, y_address) FROM store_trackingnumber WHERE warehouse_id= " + std::to_string(whid) + " AND fsm_state= " + std::to_string(WAITING_TRUCK_DISPATCH));
+  std::string queryString("SELECT id, x_address, y_address FROM store_trackingnumber WHERE warehouse_id= " + std::to_string(whid) + " AND fsm_state= " + std::to_string(WAITING_TRUCK_DISPATCH));
   pqxx::result r = txn.exec(queryString);
   if (r.size() == 0) {
     std::cout << "No shipments loaded and ready for dispatch in this warehouse!\n";
@@ -204,26 +207,37 @@ std::tuple<int, std::vector<std::tuple<unsigned long, int, int>>> getLoadedShipm
     std::tuple<int, std::vector<std::tuple<unsigned long, int, int>>> result(truckid, loadedShipments);
     return result;
   }
+  std::cout << "About to call getLoadedShipmentsForWarehouse\n";
   pqxx::result r = getLoadedShipmentsForWarehouse(whid);
   unsigned long shipid;
   int delX;
   int delY;
   //std::tuple<unsigned long, int, int> shipInfo;
-  for (int shipment = 0; shipment < r.size(); shipment ++) {
-    if (!r[shipment]["id"].to(shipid)) {
-      std::cout << "Error! unable to cast shipid to unsigned long!\n";
-      continue; // Fail silently on this shipment?
+  std::cout << "About to extract shipment info in getLoadedShipmentsForWarehouse\n";
+  try {
+    for (int shipment = 0; shipment < r.size(); shipment ++) {
+      if (!r[shipment]["id"].to(shipid)) {
+      //if (!r[0][0].to(shipid)) { 
+        std::cout << "Error! unable to cast shipid to unsigned long!\n";
+        continue; // Fail silently on this shipment?
+      }
+      if (!r[shipment]["x_address"].to(delX)) {
+        std::cout << "Error! Unable to cast delivery x-coordinate to int!\n";
+        continue;
+      }
+      if (!r[shipment]["y_address"].to(delY)) {
+        std::cout << "Error! Unable to cast delivery y-coordinate to int!\n";
+        continue;
+      }
+      std::tuple<unsigned long, int, int> shipInfo(shipid, delX, delY);
+      loadedShipments.push_back(shipInfo);
     }
-    if (!r[shipment]["x_address"].to(delX)) {
-      std::cout << "Error! Unable to cast delivery x-coordinate to int!\n";
-      continue;
-    }
-    if (!r[shipment]["y_address"].to(delY)) {
-      std::cout << "Error! Unable to cast delivery y-coordinate to int!\n";
-      continue;
-    }
-    std::tuple<unsigned long, int, int> shipInfo(shipid, delX, delY);
-    loadedShipments.push_back(shipInfo);
+  }
+  catch (const pqxx::pqxx_exception &e)
+  {
+    std::cerr << e.base().what() << std::endl;
+    const pqxx::sql_error *s=dynamic_cast<const pqxx::sql_error*>(&e.base());
+    if (s) std::cerr << "Crashed on query: " << s->query() << std::endl;
   }
   std::tuple<int, std::vector<std::tuple<unsigned long, int, int>>> result(truckid, loadedShipments);
   return result;
@@ -240,6 +254,7 @@ bool hasPackagesAwaitingLoad(int whid) {
     return false;
   }
   std::cout << "This warehouse has " << r.size() << " packages awaiting load!\n";
+  txn.commit();
   return true;
 }
 
@@ -272,6 +287,7 @@ int readyForDispatch(unsigned long shipid, int * mustSendTruck) {
     return -1;
   }
   std::cout << "This warehouse has no packages awaiting load, dispatching truck!\n";
+  txn.commit();
   return whid;
 }
 
@@ -295,6 +311,7 @@ int setDispatched(std::vector<unsigned long> dispatchedShips) {
       std::cerr << e.base().what();
       return -1;
     }
+  txn.commit();
 }
 
 // TO-DO
@@ -312,11 +329,13 @@ std::vector<std::tuple<int, int, unsigned long>> setTruckForWarehouse(int whid, 
     r = txn.exec(queryString);
     // Update fsm_state and truck_id for all shipments with WAITING_TRUCK to WAITING_LOAD
     queryString = "UPDATE store_trackingnumber\nSET fsm_state=" + std::to_string(WAITING_LOAD) + ", truck_id=" + std::to_string(truckid) + "\nWHERE fsm_state=" + std::to_string(WAITING_TRUCK) + " AND warehouse_id=" + std::to_string(whid);
+    //queryString = "UPDATE store_trackingnumber\nSET fsm_state=" + std::to_string(WAITING_LOAD) + "\nWHERE fsm_state=" + std::to_string(WAITING_TRUCK) + " AND warehouse_id=" + std::to_string(whid);
     r = txn.exec(queryString);
-    txn.commit();
-    std::cout << "Successfully updated fsm states for shipments waiting for truck in warehouse ";
+    //txn.commit();
+    std::cout << "Successfully updated fsm states for shipments waiting for truck in warehouse\n";
     // NEED TO SEND LOAD REQUEST TO SIM FOR EACH OF THESE PACKAGES!
-    queryString = "SELECT shipid FROM store_trackingnumber WHERE fsm_state=" + std::to_string(WAITING_LOAD) + " AND warehouse_id=" + std::to_string(whid) + " AND truck_id=" + std::to_string(truckid);
+    //queryString = "SELECT id FROM store_trackingnumber WHERE fsm_state=" + std::to_string(WAITING_LOAD) + " AND warehouse_id=" + std::to_string(whid) + " AND truck_id=" + std::to_string(truckid);
+    queryString = "SELECT id FROM store_trackingnumber WHERE fsm_state=" + std::to_string(WAITING_LOAD) + " AND warehouse_id=" + std::to_string(whid);
     r = txn.exec(queryString);
     if (r.size() == 0) {
       std::cout << "No packages to be loaded immediately for this warehouse.\n";
@@ -329,9 +348,11 @@ std::vector<std::tuple<int, int, unsigned long>> setTruckForWarehouse(int whid, 
           std::cout << "Error casting id of package to unsigned long!\n";
           continue;
         }
+        std::cout << "Shipid for package about to be packed is " << shipid << "\n";
         loadInfo.push_back(std::tuple<int, int, unsigned long>(whid, truckid, shipid));
       }
     }
+    txn.commit(); // Commit at the end
   }
   catch (const pqxx::pqxx_exception &e) {
     std::cout << "DB ERROR trying to update truck_id of warehouse whid " << whid << " to " << truckid << "\n";
@@ -343,16 +364,55 @@ std::vector<std::tuple<int, int, unsigned long>> setTruckForWarehouse(int whid, 
   return loadInfo;
 }
 
+int getTruckForShipment(unsigned long shipid) {
+  // First retrieve whid of shipment
+  pqxx::connection c{"dbname=amazon_db user=postgres"};
+  pqxx::work txn{c};
+  std::string queryString("SELECT warehouse_id FROM store_trackingnumber WHERE id=" + std::to_string(shipid));
+  pqxx::result r = txn.exec(queryString);
+  if (r.size() == 0) {
+    std::cout << "Missing shipment " << shipid << " from database!\n";
+    return -1;
+  }
+  int whid;
+  if (!r[0]["warehouse_id"].to(whid)) {
+    std::cout << "Error casting warehouse id to integer!\n";
+    return -1;
+  }
+  std::cout << "Warehouse number of shipment " << shipid << " is found to be " << whid;
+  return getTruckIDForWarehouse(whid);
+}
+
+
 std::tuple<int, int, unsigned long> setReady(unsigned long shipid) {
   pqxx::connection c{"dbname=amazon_db user=postgres"};
   pqxx::work txn{c};
-  // change fsm state from WAITING_READY_TRUCK to WAITING_TRUCK 
-  std::string queryString("UPDATE store_trackingnumber\nSET fsm_state=" + std::to_string(WAITING_TRUCK) + "\nWHERE id=" + std::to_string(shipid) + " AND fsm_state=" + std::to_string(WAITING_READY_TRUCK));
+  
+  // check if truck is already at warehouse
+  int truckForShipment = getTruckForShipment(shipid); // Update truckid of shipment before continuing
+  std::string queryString("UPDATE store_trackingnumber\nSET truck_id=" + std::to_string(shipid) + " WHERE id=" + std::to_string(truckForShipment));
   pqxx::result r = txn.exec(queryString);
+  int currentShipmentState = getShipmentState(shipid);
+  if (truckForShipment != -1) { 
+  //&& ((currentShipmentState == WAITING_READY_TRUCK) || (currentShipmentState == WAITING_TRUCK))) { // already has truck
+    if (currentShipmentState == WAITING_READY_TRUCK) {
+      setShipmentState(shipid, WAITING_READY);
+      std::cout << "Updated state of shipment " << shipid << " to be truck arrived, waiting for ready\n";
+    }
+    else if (currentShipmentState == WAITING_TRUCK) { // shouldn't happen
+      std::cout << "WARNING: WEIRD LOGIC CONDITION IN setReady!\n";
+      setShipmentState(shipid, WAITING_LOAD);
+    } 
+    //incrementShipmentState()
+  }
+  // change fsm state from WAITING_READY_TRUCK to WAITING_TRUCK 
+  queryString = ("UPDATE store_trackingnumber\nSET fsm_state=" + std::to_string(WAITING_TRUCK) + "\nWHERE id=" + std::to_string(shipid) + " AND fsm_state=" + std::to_string(WAITING_READY_TRUCK));
+  r = txn.exec(queryString);
   std::tuple<int, int, unsigned long> shipInfo;
   shipInfo = std::tuple<int, int, unsigned long>(-1, -1, shipid);
   if (r.affected_rows() > 0) { // Not ready for loading
     std::cout << "Shipment " << shipid << " now packed but no truck yet, not ready for loading\n";
+    txn.commit();
     return shipInfo;
   }
   // change fsm_state from WAITING_READY to WAITING_LOAD
@@ -360,28 +420,33 @@ std::tuple<int, int, unsigned long> setReady(unsigned long shipid) {
   r = txn.exec(queryString);
   if (r.affected_rows() == 0) { // Either shipment does not exist or fsm is in wrong state
     std::cout << "ERROR! Package " << shipid << " either missing from trackingnumbers table or in wrong FSM State!\n";
+    txn.commit();
     return shipInfo;
   }
   // Package ready for loading
   std::cout << "Package " << shipid << " ready for loading!\n";
   // Retrieve warehouse_id and truck_id for package
-  queryString = "SELECT (warehouse_id, truck_id) FROM store_trackingnumber WHERE id=" + std::to_string(shipid);
+  queryString = "SELECT warehouse_id, truck_id FROM store_trackingnumber WHERE id=" + std::to_string(shipid);
   r = txn.exec(queryString);
   if (r.size() == 0) { // Shouldn't happen
     std::cout << "ERROR! Package " << shipid << " disappeared in the middle of setReady txn?\n";
+    txn.commit();
     return shipInfo;
   }
   int whnum;
   int truckid;
-  if (!r[0]["warehouse_num"].to(whnum)) {
+  if (!r[0]["warehouse_id"].to(whnum)) {
     std::cout << "Error casting whnum of package " << shipid << " to integer!\n";
+    txn.commit();
     return shipInfo;
   }
   if (!r[0]["truck_id"].to(truckid)) {
     std::cout << "Error casting truckid of package " << shipid << " to integer!\n";
+    txn.commit();
     return shipInfo;
   }
   shipInfo = std::tuple<int, int, unsigned long>(whnum, truckid, shipid);
   std::cout << "Successfully extracted information for shipment " << shipid << " which is ready for loading!\n";
+  txn.commit();
   return shipInfo;
 }

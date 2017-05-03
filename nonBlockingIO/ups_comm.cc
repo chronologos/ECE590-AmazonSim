@@ -1,4 +1,5 @@
 #include "./ups_comm.h"
+#include <google/protobuf/text_format.h>
 
 std::deque<AmazontoUPS> outgoing;
 std::mutex queueMutex;
@@ -26,18 +27,32 @@ int pollFromUPSMsgQueue(AmazontoUPS* holder) {
 
 // Called whenever shipments are being packed at a warehouse with no truck in that warehouse
 //int requestTruck(int whid, int * upsFD) {
-int requestTruck(int whid) {
+//int requestTruck(int whid) {
+int requestTruck(int whid, unsigned long shipid, int delX, int delY) {
 	// construct message
 	AmazontoUPS out;
 	sendTruck truckRequest;
 	sendTruck * holder = out.add_send_truck();
 	// Get truck id of truck in warehouse, if -1 then need to request truck
+	if (shipid >= 0) {
+		pkgInfo info;
+		info.set_packageid(shipid);
+		info.set_delx(delX);
+		info.set_dely(delY);
+		pkgInfo * infoHolder = truckRequest.add_packages();
+		*infoHolder = info;
+	}
+
+
 	int truckid;
-	if ((truckid = getTruckIDForWarehouse(whid)) < 0) {
-		std::cout << "No trucks in this warehouse, requesting truck from UPS\n";
+//	if ((truckid = getTruckIDForWarehouse(whid)) < 0) {
+//		std::cout << "No trucks in this warehouse, requesting truck from UPS\n";
 		truckRequest.set_whid(whid);
 		*holder = truckRequest;
 		//if (*upsFD < 0) { // UPS not yet connected to Amazon, enqueue
+		std::string string;
+		google::protobuf::TextFormat::PrintToString(out, &string);
+		std::cout << "Outgoing message: " << string << "\n";
 		if (UPS_FD < 0) {
 			std::cout << "UPS not yet connected, adding sendTruck message to queue!\n";
 			addToUPSMsgQueue(out);
@@ -54,11 +69,11 @@ int requestTruck(int whid) {
 				return 1;
 			}
 		}
-	}
-	else {
-		std::cout << "This warehouse already has a truck of id " << truckid << "\n";
-		return 0;
-	}
+//	}
+//	else {
+//		std::cout << "This warehouse already has a truck of id " << truckid << "\n";
+//		return 0;
+//	}
 }
 
 // Shipment info can be retrieved from DB using truck_id and fsm_state of LOADED
@@ -147,6 +162,7 @@ int handleTruckArrived(AmazontoUPS* out, UPStoAmazon* in, int* result, int sim_s
 		truckArr = in->truck_arrived(arrival);
 		whid = truckArr.whid();
 		truckid = truckArr.truckid();
+		std::cout << "Truck " << truckid << " has arrived at warehouse " << whid << "\n";
 		std::vector<std::tuple<int, int, unsigned long>> loadInfo = setTruckForWarehouse(whid, truckid); // also transitions fsm_state for all shipments in the warehouse which were waiting on truck arrival
 		if (loadInfo.size() > 0) {
 			std::cout << "Some packages at warehouse " << whid << " are already packed and ready for loading, upsMessenger making load request to sim!\n";
@@ -180,6 +196,7 @@ int handlePackageDelivered(AmazontoUPS* out, UPStoAmazon* in, int* result) { // 
 			std::cout << "Error updating fsm_state of shipid " << shipid << "!\n";
 			//errors ++;
 		} 
+		std::cout << "SUCCESSFULLY DELIVERED PACKAGE " << shipid << "!!!\n";
 	}
 	//return 0;
 	return in->delivered_size();
@@ -349,12 +366,14 @@ int listenToUPS(int sim_sock) {
                     			std::cout << "Error writing outgoing message to socket!\n";
                     		}
                     		else {
+                    			/*
                     			std::cout << "Successfully wrote message to UPS!\n";
                     			// OK TO CLOSE?
                     			//close(*upsFD);
                     			close(UPS_FD);
                     			//FD_CLR(*upsFD, &master_set);
                     			FD_CLR(UPS_FD, &master_set);
+                    			*/
                     		}
                     	}
                   	}

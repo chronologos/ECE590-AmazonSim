@@ -1,15 +1,18 @@
 #include "./sleepyProtobuff.h"
 /* ADAPTED FROM IBM Knowledge Center - "https://www.ibm.com/support/knowledgecenter/en/ssw_i5_54/rzab6/xnonblock.htm" */
 
-int BUY_PACK_SIM_SPEED = 120;
+int BUY_PACK_SIM_SPEED = 40000000;
 
 int nextWarehouse = 0;
 
 int getNextWarehouse() {
+ /*
    int currentWarehouse = nextWarehouse;
    nextWarehouse = (nextWarehouse + 1) % NUM_WAREHOUSES;
    //return nextWarehouse;
    return currentWarehouse;
+*/
+   return 1;
 }
 
 int purchaseMore(unsigned long shipid, int delX, int delY, int sim_sock) {

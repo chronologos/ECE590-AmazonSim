@@ -40,7 +40,8 @@ int connectToSim() {
   int socket_fd;
   struct addrinfo host_info;
   struct addrinfo *host_info_list;
-  const char *hostname = "10.236.48.19";
+  const char *hostname = "10.236.48.28";
+  //const char *hostname = "10.190.87.71";
   const char *port     = "23456";
   memset(&host_info, 0, sizeof(host_info));
   host_info.ai_family   = AF_UNSPEC;
@@ -120,14 +121,16 @@ int handleArrived(ACommands * aCommands, AResponses * aResponses, int * result) 
   AProduct aProduct;
   unsigned long product_id;
   int count;
+  int whnum;
   for (int num = 0; num < aResponses->arrived_size(); num ++) {
     aPurchaseMore = aResponses->arrived(num);
+    whnum = aPurchaseMore.whnum();
     for (int product = 0; product < aPurchaseMore.things_size(); product ++) {
       aProduct = aPurchaseMore.things(product);
       product_id = aProduct.id();
       count = aProduct.count();
       // Update DB
-      if (updateInventory(product_id, count) < 0) {
+      if (updateInventory(product_id, count, whnum) < 0) {
         std::cout << "Error updating inventory for product with id " << product_id << "\n";
         *result = 0; // Set error flag
       }
@@ -242,7 +245,7 @@ int handleLoaded(ACommands * aCommands, AResponses * aResponses, int * result) {
         if (mustSendTruck) {
           std::cout << "Warehouse has shipments waiting to be loaded, requesting another truck for this warehouse!\n";
           int sendTruckRequest;
-          if ((sendTruckRequest = requestTruck(whid)) < 0) {
+          if ((sendTruckRequest = requestTruck(whid, -1, -1, -1)) < 0) {
             std::cout << "Unable to request truck to warehouse " << whid << "!\n";
             continue;
           }
@@ -300,7 +303,8 @@ ACommands handleAResponses(AResponses * aResponses, int * result, int sim_sock) 
   totalHandled += handleReady(&aCommands, aResponses, result, sim_sock);
   totalHandled += handleLoaded(&aCommands, aResponses, result);
 
-  aCommands.set_simspeed(SIM_SPEED);
+  // aCommands.set_simspeed(SIM_SPEED);
+  aCommands.set_simspeed(40000000);
 
   if (totalHandled == 0) {
     std::cout << "Nothing to do for this response, treating as mere ack\n";
@@ -330,6 +334,9 @@ bool makeLoadRequest(std::vector<std::tuple<int, int, unsigned long>> loadInfo, 
     holder = aCommand.add_load();
     *holder = aPutOnTruck;
   }
+  std::cout << "Shipid being sent for load (APutOnTruck) request: " << aPutOnTruck.shipid() << "\n";
+  std::cout << "Warehouse number being sent for load (aPutOnTruck) request: " << aPutOnTruck.whnum() << "\n";
+  std::cout << "Truckid number being sent for load (aPutOnTruck) request: " << aPutOnTruck.truckid() << "\n";
   if (!sendMsgToSocket(aCommand, sim_sock)) {
     std::cout << "Unable to send request to sim for loading of packages upon arrival of truck!\n";
     return false;

@@ -26,11 +26,12 @@
 #define DISPATCHED 6
 #define DELIVERED 7
 
-#define MIN_TRUCK_LOAD 3
+#define MIN_TRUCK_LOAD 1
 #define NUM_WAREHOUSES 10
 
-#define WORLD_ID 1007
-#define SIM_SPEED 120
+#define WORLD_ID 1001
+//#define WORLD_ID 1000
+#define SIM_SPEED 40000000
 
 
 void WriteBytes(int socket, std::string str);

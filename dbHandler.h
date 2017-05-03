@@ -10,8 +10,8 @@ int getShipmentState(unsigned long shipid);
 int initShipmentState(unsigned long shipid);
 int setShipmentState(unsigned long shipid, int state); // To handle branch from packing to (packed, truck not arrived) and (not packed, truck arrived)
 int incrementShipmentState(unsigned long shipid);
-int getInventory(unsigned long productid);
-int updateInventory(unsigned long productid, int toAdd); 
+int getInventory(unsigned long productid, int whid);
+int updateInventory(unsigned long productid, int toAdd, int whid); 
 
 int getTruckIDForWarehouse(int whid);
 
