@@ -13,12 +13,18 @@
                     {{ form.x_coord.errors }}
                     <label for="{{ form.x_coord.id_for_label }}" class="">x_coord</label>
                     {{ form.x_coord }}
+
                     {{ form.y_coord.errors }}
                     <label for="{{ form.y_coord.id_for_label }}" class="">y_coord</label>
                     {{ form.y_coord }}
+
                     {{ form.ups_num.errors }}
                     <label for="{{ form.ups_num.id_for_label }}" class="">UPS Account No. (Optional)</label>
                     {{ form.ups_num }}
+
+                    {{ form.gift_card.errors }}
+                    <label for="{{ form.gift_card.id_for_label }}" class="">Gift card No (optional)</label>
+                    {{ form.gift_card }}
                     </br>
                     <h3> Total: ${{ price }} </h3>
                     <button class="btn btn-lg btn-primary btn-block" type="submit">Checkout</button>

@@ -55,25 +55,35 @@ class CheckoutForm(forms.Form):
         else:
             ups_num_placeholder = None
         super(CheckoutForm, self).__init__(*args, **kwargs)
+
         self.fields['x_coord'] = forms.IntegerField(
-            label='x_coord',
+            label='x coord',
             widget=forms.NumberInput(
                 attrs={
                     'class': 'form-control',
                     'placeholder': x_placeholder}))
+
         self.fields['y_coord'] = forms.IntegerField(
-            label='y_coord',
+            label='y coord',
             widget=forms.NumberInput(
                 attrs={
                     'class': 'form-control',
                     'placeholder': y_placeholder}))
         self.fields['ups_num'] = forms.IntegerField(
-            label='ups_num',
+            label='ups num',
             required=False,
             widget=forms.NumberInput(
                 attrs={
                     'class': 'form-control',
                     'placeholder': ups_num_placeholder}))
+
+        self.fields['gift_card'] = forms.CharField(
+            required=False,
+            label='gift card',
+            widget=forms.TextInput(
+                attrs={
+                    'class': 'form-control',
+                      }))
 
 
 class FilterForm(forms.Form):

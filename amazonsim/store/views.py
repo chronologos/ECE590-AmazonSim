@@ -225,7 +225,26 @@ def checkout(request):
         if form.is_valid():
             x_coord = form.cleaned_data['x_coord']
             y_coord = form.cleaned_data['y_coord']
-            ups_num = form.cleaned_data['ups_num']
+
+            if 'ups_num' in form.cleaned_data: 
+                ups_num = form.cleaned_data['ups_num']
+            else:
+                ups_num = 0
+
+            if 'gift_code' in form.cleaned_data:
+                gift_code = form.cleaned_data['gift_code']
+                if Giftcard.objects.filter(gift_card_code=gift_code).exists():
+                    giftcard = Giftcard.objects.get(gift_card_code=gift_code)
+                    if giftcard.used:
+                        return render(request, 'store/checkout.html',
+                              {'message': 'code used'})
+                    else:
+                        total_price -= giftcard.value
+                        giftcard.used = True
+                        giftcard.save()
+                else:
+                    return render(request, 'store/checkout.html',
+                          {'message': 'code invalid'})
 
             # save address and ups num for convenience, used in CheckoutForm
             # placeholder
