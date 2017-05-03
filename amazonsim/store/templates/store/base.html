@@ -76,6 +76,13 @@
       </div>
       {% endif %}
       {% endblock %}
+      {% block infos %}
+      {% if info %}
+      <div class="alert alert-info" role="alert">
+           {{ info }}
+      </div>
+      {% endif %}
+      {% endblock %}
     </br>
     <div id="content" class="container-fluid">
         {% block content %}{% endblock %}

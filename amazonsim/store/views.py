@@ -1,3 +1,4 @@
+import random
 from django.shortcuts import render
 from django.http import HttpResponseRedirect, HttpResponse, JsonResponse
 from store.models import *
@@ -36,7 +37,7 @@ WORLD = 1001
 N_WAREHOUSES = 2
 
 # ad hoc data structure containing map of product_name:(count,price,description)
-PRODUCTS = {"papaya":(10000,10,"Delicious fruit!"), "tomato":(10000,20,"Good for soup.")}
+PRODUCTS = {"papaya":(10000,10,"Delicious fruit!"), "tomato":(10000,20,"Good for soup."), "aop":(10000,5,"essential reading?")}
 # Create your views here.
 
 def init(request):
@@ -63,10 +64,13 @@ def init(request):
               {"message": "init succeeded."})
     '''
     # populate database for sim and c++/py
+    if Product.objects.all().exists():
+        return render(request, 'store/cart.html',
+                      {"info": "already inited"})
     sim_connect = amazon_pb2.AConnect()
     sim_connect.worldid = WORLD
     sim_connect_bytes = sim_connect.SerializeToString()
-
+    
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.settimeout(SOCKET_TIMEOUT)
@@ -122,7 +126,7 @@ def init(request):
                       {"message": "backend error: socket timed out/conn refused."})
     print("done")
     return render(request, 'store/cart.html',
-                  {"message": "init succeeded."})
+                  {"info": "init succeeded."})
 
 def rate(request):
     if request.POST:
@@ -216,7 +220,7 @@ def remove(request, product_id):
         CartItem.objects.filter(
             shopping_cart_id=cart.id).filter(
             product=product_id).all())
-    return render(request, 'store/cart.html', {"message": "removed items!"})
+    return render(request, 'store/cart.html', {"info": "removed items!"})
 
 
 @login_required(login_url='/')
@@ -234,7 +238,8 @@ def checkout(request):
     cart = getcart(request)
     cart_items = CartItem.objects.filter(shopping_cart_id=cart.id).all()
     # TODO/NOTE this only works if all warehouses hold same inventory
-    warehouse_id = Warehouse.objects.all()[0]
+    warehouse = random.choice(Warehouse.objects.all())
+    print("chose warehouse {0}".format(warehouse))
     total_price = 0
     if request.method == 'POST':
         form = CheckoutForm(request.POST, request=request)
@@ -258,19 +263,21 @@ def checkout(request):
             x_address=x_coord,
             y_address=y_coord,
             truck_id=-1,
-            #warehouse=warehouse_id,
-            warehouse_id=1,
+            warehouse_id=warehouse.id,
             ups_num=ups_num)
         tracking_number.save()
 
         for item in cart_items:
-            if not Inventory.objects.filter(warehouse=warehouse_id).filter(
+            if not Inventory.objects.filter(
                     product=item.product).exists():
+                print("ok")
+                print(Inventory.objects.filter(
+                    product=item.product))
                 return render(request, 'store/checkout.html',
                               {"message": "product out of stock"})
 
             inventory_item = Inventory.objects.filter(
-                warehouse=warehouse_id).get(
+                warehouse=warehouse).get(
                 product=item.product)
             total_price += (inventory_item.price * item.count)
             if inventory_item.count < item.count:
@@ -282,6 +289,7 @@ def checkout(request):
             inventory_item.save()
             shipment_item = ShipmentItem(
                 tracking_number=tracking_number,
+                description=product.description,
                 product=product,
                 count=count)
             shipment_item.save()
@@ -310,22 +318,29 @@ def checkout(request):
             return render(request, 'store/checkout.html',
                           {"message": "backend error: socket timed out."})
 
+        except ConnectionRefusedError:
+            return render(request, 'store/cart.html',
+                          {"message": "backend error: socket timed out/conn refused."})
+        
         CartItem.objects.filter(shopping_cart_id=cart.id).delete()
         context = {
-            'message': 'checked out! your tracking number is {0}'.format(
+            'info': 'checked out! your tracking number is {0}'.format(
                 tracking_number.id),
             'price': total_price}
         return render(request, 'store/checkout.html', context)
     else:
         form = CheckoutForm(request=request)
         for item in cart_items:
-            if not Inventory.objects.filter(warehouse=warehouse_id).filter(
+            if not Inventory.objects.filter(
                     product=item.product).exists():
+                print("ok")
+                print(Inventory.objects.filter(
+                    product=item.product))
                 return render(request, 'store/checkout.html',
                               {"message": "product(s) out of stock"})
 
             inventory_item = Inventory.objects.filter(
-                warehouse=warehouse_id).get(
+                warehouse=warehouse).get(
                 product=item.product)
             total_price += (inventory_item.price * item.count)
         return render(request, 'store/checkout.html',

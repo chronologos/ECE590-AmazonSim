@@ -18,8 +18,8 @@ class Warehouse(models.Model):
     truck_id = models.IntegerField()  # -1 if no truck
 
     def __str__(self):
-        return "warehouse at {0},{1}. truck {2} present.".format(
-            self.x_coord, self.y_coord, self.truck_id)
+        return "w{0}".format(
+            self.id)
 
 
 class Inventory(models.Model):
