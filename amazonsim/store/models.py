@@ -11,6 +11,13 @@ class Product(models.Model):
     def __str__(self):
         return self.name
 
+class Giftcard(models.Model):
+    gift_card_code = models.TextField()
+    value = models.FloatField()
+    used = models.BooleanField()
+
+    def __str__(self):
+        return self.name
 
 class Warehouse(models.Model):
     x_coord = models.IntegerField()
