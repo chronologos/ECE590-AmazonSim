@@ -19,7 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='internalcom.proto',
   package='',
   syntax='proto2',
-  serialized_pb=_b('\n\x11internalcom.proto\"3\n\x05Order\x12\x0e\n\x06shipid\x18\x01 \x02(\x03\x12\x0c\n\x04\x64\x65lX\x18\x02 \x02(\x05\x12\x0c\n\x04\x64\x65lY\x18\x03 \x02(\x05\"+\n\nOrderReply\x12\x0e\n\x06shipid\x18\x01 \x02(\x03\x12\r\n\x05\x65rror\x18\x02 \x01(\t')
+  serialized_pb=_b('\n\x11internalcom.proto\"A\n\x05Order\x12\x0e\n\x06shipid\x18\x01 \x02(\x03\x12\x0c\n\x04whid\x18\x02 \x02(\x05\x12\x0c\n\x04\x64\x65lX\x18\x03 \x02(\x05\x12\x0c\n\x04\x64\x65lY\x18\x04 \x02(\x05\"+\n\nOrderReply\x12\x0e\n\x06shipid\x18\x01 \x02(\x03\x12\r\n\x05\x65rror\x18\x02 \x01(\t')
 )
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
@@ -41,15 +41,22 @@ _ORDER = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       options=None),
     _descriptor.FieldDescriptor(
-      name='delX', full_name='Order.delX', index=1,
+      name='whid', full_name='Order.whid', index=1,
       number=2, type=5, cpp_type=1, label=2,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     _descriptor.FieldDescriptor(
-      name='delY', full_name='Order.delY', index=2,
+      name='delX', full_name='Order.delX', index=2,
       number=3, type=5, cpp_type=1, label=2,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='delY', full_name='Order.delY', index=3,
+      number=4, type=5, cpp_type=1, label=2,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
@@ -67,7 +74,7 @@ _ORDER = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=21,
-  serialized_end=72,
+  serialized_end=86,
 )
 
 
@@ -104,8 +111,8 @@ _ORDERREPLY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=74,
-  serialized_end=117,
+  serialized_start=88,
+  serialized_end=131,
 )
 
 DESCRIPTOR.message_types_by_name['Order'] = _ORDER

@@ -19,7 +19,6 @@ import amazon_pb2
 import socket
 import struct
 
-# CPP_HOST = "localhost"
 PYTHON_PORT = "8000"
 
 UPS_HOST = "localhost"
@@ -41,32 +40,12 @@ PRODUCTS = {"papaya":(10000,10,"Delicious fruit!"), "tomato":(10000,20,"Good for
 # Create your views here.
 
 def init(request):
-    '''
-    warehouses = []
-    for w in range(N_WAREHOUSES):
-       w_local = Warehouse(x_coord=0,y_coord=0,truck_id=-1)
-       w_local.save() 
-       warehouses.append(w_local)
-
-    prod_map = {}
-    for name,tup in PRODUCTS.items():
-        count, price, description = tup
-        p_local = Product(name=name, description=description, rating=0, num_ratings=0)
-        p_local.save()
-        prod_map[name] = p_local
-    for w in warehouses:
-        for name,tup in PRODUCTS.items():
-            count, price, description = tup
-            i_local = Inventory(product=prod_map[name], count=count, price=price, warehouse=w)
-            i_local.save()
-    print("done")
-    return render(request, 'store/cart.html',
-              {"message": "init succeeded."})
-    '''
-    # populate database for sim and c++/py
-    if Product.objects.all().exists():
+    # populate database for both sim and c++/py
+    
+    # this part is to make the api idempotent (at most once)
+    if Product.objects.all().exists() or Warehouse.objects.all().exists():
         return render(request, 'store/cart.html',
-                      {"info": "already inited"})
+                      {"info": "Already inited, not doing anything."})
     sim_connect = amazon_pb2.AConnect()
     sim_connect.worldid = WORLD
     sim_connect_bytes = sim_connect.SerializeToString()
@@ -297,6 +276,7 @@ def checkout(request):
         # send tracking_number to CPP server
         order = internalcom_pb2.Order()
         order.shipid = tracking_number.id
+        order.whid = warehouse.id
         order.delX = x_coord
         order.delY = y_coord
         # print(order.shipid)
